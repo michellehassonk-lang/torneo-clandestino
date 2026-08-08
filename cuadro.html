@@ -147,6 +147,22 @@
   .preview .ok{ color:var(--win); font-weight:700; }
   .preview .warn{ color:var(--stamp-red); }
 
+  .roster-item{ display:flex; gap:8px; align-items:center; margin-bottom:6px; }
+  .roster-item input[type=text]{
+    flex:1; padding:8px 10px; background:rgba(255,255,255,0.4); border:1px solid rgba(32,30,23,0.35);
+    border-radius:2px; font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--ink); outline:none;
+  }
+  .roster-item select{
+    width:76px; padding:8px 6px; background:rgba(255,255,255,0.4); border:1px solid rgba(32,30,23,0.35);
+    border-radius:2px; font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--ink); outline:none;
+  }
+  .roster-item .del{
+    background:none; border:1px solid rgba(140,35,31,0.5); color:var(--stamp-red);
+    padding:7px 10px; border-radius:2px; cursor:pointer; font-size:12px; line-height:1;
+  }
+  .roster-item .del:hover{ background:rgba(140,35,31,0.08); }
+  .roster-count{ font-size:11px; color:var(--ink-soft); margin:8px 0 0; }
+
   .modal-back{ display:none; position:fixed; inset:0; background:rgba(13,15,14,0.85); align-items:center; justify-content:center; z-index:50; padding:16px; }
   .modal-back.show{ display:flex; }
   .modal{ background:var(--paper); color:var(--ink); border-radius:2px; width:100%; max-width:420px; box-shadow:0 30px 60px rgba(0,0,0,0.7); overflow:hidden; animation:slamIn .35s cubic-bezier(.2,1.4,.4,1); }
@@ -192,6 +208,13 @@
         <div class="note">Columnas: <b>Nombre</b> · <b>Nivel</b> (1/Avanzado o 2/Intermedio — solo para la jornada 10:30). Los jugadores del archivo quedan asignados a la jornada que elijas abajo.</div>
       </label>
       <div class="preview" id="preview"></div>
+
+      <h3 style="margin-top:22px;">1b · Plantel de la jornada (editable)</h3>
+      <div class="note" style="margin-bottom:10px;">Se llena con el archivo cargado o con lo ya publicado de la jornada seleccionada abajo. Puedes corregir nombres, cambiar niveles, agregar o eliminar agentes — y luego volver a generar.</div>
+      <div id="rosterList"></div>
+      <button class="btn-ghost" id="addPlayerBtn" style="margin-top:8px;">＋ Agregar agente</button>
+      <button class="btn-ghost" id="saveNamesBtn" style="margin-top:8px;">💾 Guardar nombres/niveles (sin regenerar)</button>
+      <div class="note">"Guardar" aplica cambios de nombre y nivel al plantel Y a todos los partidos ya publicados, sin rehacer el fixture. Eliminar o agregar agentes sí requiere volver a generar (o usa la sustitución partido a partido tocando la misión en modo edición).</div>
 
       <h3 style="margin-top:22px;">2 · Configurar y generar</h3>
       <div class="cfg-row">
@@ -239,6 +262,14 @@
         <button class="btn-ghost" id="mClear">Borrar</button>
         <button class="btn-red" id="mSave">Guardar</button>
       </div>
+      <div id="subZone" style="margin-top:16px;border-top:1px dashed rgba(32,30,23,0.3);padding-top:12px;">
+        <label style="display:block;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:5px;">Sustituir jugador (por alguien en la sombra)</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <select id="subOut" style="flex:1;min-width:120px;padding:8px;background:rgba(255,255,255,0.4);border:1px solid rgba(32,30,23,0.35);border-radius:2px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);"></select>
+          <select id="subIn" style="flex:1;min-width:120px;padding:8px;background:rgba(255,255,255,0.4);border:1px solid rgba(32,30,23,0.35);border-radius:2px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);"></select>
+        </div>
+        <button class="btn-ghost" id="subApply" style="width:100%;margin-top:8px;">⇄ Aplicar sustitución</button>
+      </div>
       <button class="btn-ghost" id="mCancel" style="width:100%;margin-top:10px;">Cancelar</button>
     </div>
   </div>
@@ -256,7 +287,74 @@ const HORAS = { "Recluta Open": 10*60+30, "Sargento Senior": 13*60 };
 const MIN_POR_RONDA = 15;
 /* ================================ */
 
-let db=null, data=null, editMode=false, activeCat=null, currentMatch=null, jugadoresCargados=null;
+let db=null, data=null, editMode=false, activeCat=null, currentMatch=null;
+let rosterWork = [];
+
+function renderRoster(){
+  const el = document.getElementById('rosterList');
+  const jornada = document.getElementById('cfgJornada').value;
+  const esRecluta = jornada==='Recluta Open';
+  if(!rosterWork.length){
+    el.innerHTML = '<div class="note">Plantel vacío. Carga un archivo o agrega agentes manualmente.</div>';
+  } else {
+    el.innerHTML = rosterWork.map((j,i)=>`
+      <div class="roster-item">
+        <input type="text" value="${esc(j.nombre)}" data-i="${i}" data-f="nombre" placeholder="Nombre">
+        ${esRecluta ? `<select data-i="${i}" data-f="nivel">
+          <option value="1*" ${j.nivel==='1*'?'selected':''}>1★</option>
+          <option value="1" ${j.nivel==='1'?'selected':''}>1</option>
+          <option value="2" ${j.nivel==='2'||!j.nivel?'selected':''}>2</option>
+        </select>` : ''}
+        <button class="del" data-del="${i}" title="Eliminar">✕</button>
+      </div>`).join('');
+    el.querySelectorAll('input,select').forEach(inp=>{
+      inp.addEventListener('input', ()=>{
+        rosterWork[parseInt(inp.dataset.i)][inp.dataset.f] = inp.value;
+        actualizarConteo();
+      });
+    });
+    el.querySelectorAll('[data-del]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        rosterWork.splice(parseInt(btn.dataset.del),1);
+        renderRoster();
+      });
+    });
+  }
+  const cont = document.createElement('div');
+  cont.className = 'roster-count';
+  cont.id = 'rosterCount';
+  el.appendChild(cont);
+  actualizarConteo();
+  document.getElementById('genBtn').disabled = rosterWork.filter(j=>j.nombre.trim()).length < 4;
+}
+
+function actualizarConteo(){
+  const c = document.getElementById('rosterCount');
+  if(!c) return;
+  const validos = rosterWork.filter(j=>j.nombre.trim());
+  const e = validos.filter(j=>j.nivel==='1*').length;
+  const u = validos.filter(j=>j.nivel==='1').length;
+  const d = validos.filter(j=>j.nivel!=='1*'&&j.nivel!=='1').length;
+  const jornada = document.getElementById('cfgJornada').value;
+  c.textContent = jornada==='Recluta Open'
+    ? `${validos.length} agentes — 1★: ${e} · Nivel 1: ${u} · Nivel 2: ${d}`
+    : `${validos.length} agentes`;
+  document.getElementById('genBtn').disabled = validos.length < 4;
+}
+
+function cargarPlantelDesdeFirebase(){
+  const jornada = document.getElementById('cfgJornada').value;
+  if(data && data.jugadores){
+    const lista = Object.values(data.jugadores).filter(j=>j.categoria===jornada);
+    if(lista.length){
+      rosterWork = lista.map(j=>({ nombre:j.nombre, nivel:j.nivel||'', orig:j.nombre, origNivel:j.nivel||'' }));
+      renderRoster();
+      return;
+    }
+  }
+  rosterWork = [];
+  renderRoster();
+}
 
 function esc(s){ const d=document.createElement('div'); d.textContent = s==null?'':s; return d.innerHTML; }
 function normalize(n){ return n.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' '); }
@@ -420,7 +518,79 @@ document.getElementById('editToggle').addEventListener('click',()=>{
   document.getElementById('adminPanel').classList.add('show');
   document.getElementById('editIndicator').classList.add('show');
   document.getElementById('csvBtn').style.display='';
+  cargarPlantelDesdeFirebase();
   render();
+});
+
+document.getElementById('addPlayerBtn').addEventListener('click', ()=>{
+  rosterWork.push({ nombre:'', nivel: document.getElementById('cfgJornada').value==='Recluta Open' ? '2' : '' });
+  renderRoster();
+  const inputs = document.querySelectorAll('#rosterList input[type=text]');
+  if(inputs.length) inputs[inputs.length-1].focus();
+});
+
+document.getElementById('cfgJornada').addEventListener('change', ()=>{
+  cargarPlantelDesdeFirebase();
+});
+
+document.getElementById('saveNamesBtn').addEventListener('click', ()=>{
+  if(!db){ alert('Sin conexión a Firebase.'); return; }
+  const jornada = document.getElementById('cfgJornada').value;
+  const renombres = [];   /* [orig, nuevo] */
+  const nivelCambios = []; /* [nombreActual, nivelNuevo] */
+  for(const j of rosterWork){
+    if(!j.orig) continue; /* agregado a mano: solo cuenta al regenerar */
+    const nuevo = j.nombre.trim();
+    if(!nuevo) continue;
+    if(nuevo !== j.orig) renombres.push([j.orig, nuevo]);
+    if((j.nivel||'') !== (j.origNivel||'')) nivelCambios.push([nuevo, j.nivel||'']);
+  }
+  if(!renombres.length && !nivelCambios.length){ alert('No hay cambios de nombre o nivel que guardar (los agregados/eliminados se aplican al regenerar).'); return; }
+
+  const resumen = [
+    ...renombres.map(([o,n])=>`✎ ${o} → ${n}`),
+    ...nivelCambios.map(([n,nv])=>`↕ ${n}: nivel ${nv||'—'}`)
+  ].join('\n');
+  if(!confirm(`Se aplicarán estos cambios al plantel y a TODOS los partidos publicados de ${jornada}:\n\n${resumen}\n\n¿Continuar?`)) return;
+
+  const updates = {};
+  const mapa = Object.fromEntries(renombres);
+
+  /* plantel */
+  Object.entries(data.jugadores||{}).forEach(([k,j])=>{
+    if(j.categoria!==jornada) return;
+    const nuevoNombre = mapa[j.nombre] || j.nombre;
+    const item = rosterWork.find(x=>x.orig===j.nombre);
+    const nuevoNivel = item ? (item.nivel||'') : (j.nivel||'');
+    if(nuevoNombre !== j.nombre){
+      updates['jugadores/'+k] = null;
+      updates['jugadores/'+slugify(normalize(nuevoNombre))] = { nombre:nuevoNombre, categoria:j.categoria, nivel:nuevoNivel };
+    } else if(nuevoNivel !== (j.nivel||'')){
+      updates['jugadores/'+k+'/nivel'] = nuevoNivel;
+    }
+  });
+
+  /* partidos y descansos */
+  if(renombres.length){
+    Object.entries(data.rondas||{}).forEach(([rid,r])=>{
+      if(r.categoria!==jornada) return;
+      Object.entries(r.partidos||{}).forEach(([pid,m])=>{
+        ['a1','a2','b1','b2'].forEach(slot=>{
+          if(mapa[m[slot]]) updates[`rondas/${rid}/partidos/${pid}/${slot}`] = mapa[m[slot]];
+        });
+      });
+      if(r.descansan && r.descansan.some(n=>mapa[n])){
+        updates[`rondas/${rid}/descansan`] = r.descansan.map(n=>mapa[n]||n);
+      }
+    });
+  }
+
+  db.ref(ROOT + '/americano').update(updates)
+    .then(()=>{
+      alert('Cambios aplicados en todo el cuadro.');
+      setTimeout(cargarPlantelDesdeFirebase, 600);
+    })
+    .catch(e=>alert('Error: '+e.message));
 });
 
 /* ============ CARGA DE ARCHIVO ============ */
@@ -493,11 +663,10 @@ function procesarFilas(rows){
 
   const total = Object.keys(jugadores).length;
   if(total<4){ mostrarPreview('<span class="warn">Se necesitan al menos 4 jugadores.</span>'); return; }
-  jugadoresCargados = jugadores;
-  document.getElementById('genBtn').disabled = false;
+  rosterWork = Object.values(jugadores).map(j=>({ nombre:j.nombre, nivel:j.nivel||'' }));
+  renderRoster();
   mostrarPreview(
-    `<span class="ok">✔ ${total} agentes leídos.</span><br>` +
-    `Nivel 1★ (nunca mezclan): ${av} · Nivel 1: ${inter} · Nivel 2: ${dos2} · Senior: ${sen}` +
+    `<span class="ok">✔ ${total} agentes leídos del archivo.</span> Revisa o edita el plantel abajo.` +
     (sinNivel? `<br><span class="warn">⚠ ${sinNivel} sin nivel indicado → quedaron como Nivel 2.</span>`:'')
   );
 }
@@ -582,8 +751,20 @@ function rondaCruzada(unos, dos, st, maxCanchas, offset){
 
 document.getElementById('genBtn').addEventListener('click', ()=>{
   if(!db){ alert('Sin conexión a Firebase.'); return; }
-  if(!jugadoresCargados){ alert('Primero carga el archivo.'); return; }
   const jornada = document.getElementById('cfgJornada').value;
+
+  /* plantel desde el editor (limpio y sin duplicados) */
+  const vistos = new Set();
+  const plantel = [];
+  for(const j of rosterWork){
+    const nombre = j.nombre.trim();
+    if(!nombre) continue;
+    const key = slugify(normalize(nombre));
+    if(vistos.has(key)){ alert(`Nombre repetido en el plantel: "${nombre}". Corrígelo antes de generar.`); return; }
+    vistos.add(key);
+    plantel.push({ key, nombre, nivel: j.nivel||'' });
+  }
+  if(plantel.length < 4){ alert('Se necesitan al menos 4 jugadores en el plantel.'); return; }
 
   const tieneResultados = data && data.rondas && Object.values(data.rondas).some(r=>r.categoria===jornada && r.partidos && Object.values(r.partidos).some(m=>m.estado==='jugado'));
   const msg = tieneResultados
@@ -596,9 +777,9 @@ document.getElementById('genBtn').addEventListener('click', ()=>{
   const prefix = jornada==='Recluta Open' ? 'rec' : 'sen';
   const horaBase = HORAS[jornada];
 
-  /* jugadores del archivo quedan asignados a la jornada elegida */
-  const lista = Object.entries(jugadoresCargados).map(([k,j])=>({
-    key:k, nombre:j.nombre, categoria:jornada,
+  /* jugadores del plantel quedan asignados a la jornada elegida */
+  const lista = plantel.map(j=>({
+    key:j.key, nombre:j.nombre, categoria:jornada,
     nivel: jornada==='Recluta Open' ? (j.nivel||'2') : ''
   }));
 
@@ -743,14 +924,49 @@ document.getElementById('genFinalBtn').addEventListener('click', ()=>{
 
 /* ============ MARCADORES ============ */
 function openModal(rid,pid){
-  const m = data.rondas[rid].partidos[pid];
+  const r = data.rondas[rid];
+  const m = r.partidos[pid];
   currentMatch = {rid,pid};
   document.getElementById('mName1').textContent = `${m.a1} + ${m.a2}`;
   document.getElementById('mName2').textContent = `${m.b1} + ${m.b2}`;
   document.getElementById('mScore1').value = m.sa||'';
   document.getElementById('mScore2').value = m.sb||'';
+  /* sustitución: jugadores del partido vs los en la sombra de esta ronda */
+  const subZone = document.getElementById('subZone');
+  const sombra = (r.descansan||[]).filter(Boolean);
+  if(!sombra.length){
+    subZone.style.display = 'none';
+  } else {
+    subZone.style.display = 'block';
+    document.getElementById('subOut').innerHTML =
+      [m.a1,m.a2,m.b1,m.b2].map(n=>`<option value="${esc(n)}">Sale: ${esc(n)}</option>`).join('');
+    document.getElementById('subIn').innerHTML =
+      sombra.map(n=>`<option value="${esc(n)}">Entra: ${esc(n)}</option>`).join('');
+  }
   document.getElementById('modalBack').classList.add('show');
 }
+
+document.getElementById('subApply').addEventListener('click', ()=>{
+  const {rid,pid} = currentMatch;
+  const r = data.rondas[rid];
+  const m = r.partidos[pid];
+  const sale = document.getElementById('subOut').value;
+  const entra = document.getElementById('subIn').value;
+  if(!sale || !entra) return;
+  let slot = null;
+  if(m.a1===sale) slot='a1';
+  else if(m.a2===sale) slot='a2';
+  else if(m.b1===sale) slot='b1';
+  else if(m.b2===sale) slot='b2';
+  if(!slot){ alert('No encontré al jugador en este partido.'); return; }
+  const nuevaSombra = (r.descansan||[]).filter(x=>x!==entra).concat([sale]);
+  const updates = {};
+  updates[`rondas/${rid}/partidos/${pid}/${slot}`] = entra;
+  updates[`rondas/${rid}/descansan`] = nuevaSombra;
+  db.ref(ROOT + '/americano').update(updates)
+    .then(()=>document.getElementById('modalBack').classList.remove('show'))
+    .catch(e=>alert('Error: '+e.message));
+});
 document.getElementById('mCancel').addEventListener('click',()=>document.getElementById('modalBack').classList.remove('show'));
 document.getElementById('modalBack').addEventListener('click',e=>{ if(e.target.id==='modalBack') document.getElementById('modalBack').classList.remove('show'); });
 document.getElementById('mSave').addEventListener('click',()=>{
