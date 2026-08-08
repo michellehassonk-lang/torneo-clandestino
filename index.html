@@ -368,7 +368,11 @@ function hashString(str){
   for(let i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i)) >>> 0; }
   return h;
 }
-function normalize(name){ return name.trim().toLowerCase().replace(/\s+/g,' '); }
+function normalize(name){
+  return name.trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')  // quita tildes/diacríticos (é→e, ñ→n)
+    .replace(/\s+/g,' ');
+}
 function slugify(s){ return s.replace(/[.#$\/\[\]]/g,'').replace(/\s+/g,'_'); }
 
 /* Firebase: registro central de identidades (mismo proyecto que el cuadro) */
