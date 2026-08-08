@@ -208,6 +208,15 @@
       <div class="note">Niveles jornada 10:30: <b>1*</b> nunca se mezcla con nivel 2 (en las rondas mezcladas juegan entre ellos en sus canchas) · <b>1</b> juega con los 1 y se combina con los 2 en las rondas mezcladas · <b>2</b> juega entre sí el resto. Cada jornada se genera por separado sin tocar la otra. ~15 min por ronda.</div>
       <button class="btn-red" id="genBtn" style="margin-top:12px;" disabled>Generar fixture de la operación</button>
       <div class="note" id="genNote"></div>
+
+      <h3 style="margin-top:26px;">3 · Fase final (los mejores)</h3>
+      <div class="cfg-row">
+        <div><label>Clasifican (top)</label><input type="number" id="cfgTops" value="8" min="4" max="16" step="4"></div>
+        <div><label>Rondas finales</label><input type="number" id="cfgRondasFinal" value="3" min="1" max="6"></div>
+      </div>
+      <div class="note">Usa la jornada seleccionada arriba. Toma el ranking EN VIVO de esa jornada, clasifica a los mejores por puntos y agrega rondas solo entre ellos, a continuación de las ya jugadas. No borra nada de lo anterior. Úsalo el día del torneo cuando termine la fase regular.</div>
+      <button class="btn-red" id="genFinalBtn" style="margin-top:12px;">Generar fase final con los mejores</button>
+      <div class="note" id="genFinalNote"></div>
     </div>
   </div>
 
@@ -362,7 +371,7 @@ function render(){
     const jugados = partidos.filter(([,m])=>m.estado==='jugado').length;
     html += `<div class="cell"><div class="cell-inner">
       <div class="ronda-head">
-        <span>Ronda ${r.orden+1} ${r.cruzada?'<span class="cruzada-badge">MISIÓN CRUZADA</span>':''}</span>
+        <span>Ronda ${r.orden+1} ${r.final?'<span class="cruzada-badge">ФИНАЛ · FASE FINAL</span>':''}${r.cruzada?'<span class="cruzada-badge">MISIÓN CRUZADA</span>':''}</span>
         <span class="hora">${esc(r.hora)} · ${jugados}/${partidos.length}</span>
       </div>`;
     partidos.forEach(([pid,m])=>{
@@ -681,6 +690,55 @@ document.getElementById('genBtn').addEventListener('click', ()=>{
       alert('Error al guardar: '+e.message);
       document.getElementById('genBtn').disabled = false;
     });
+});
+
+/* ============ FASE FINAL ============ */
+function horaAMin(h){ const [hh,mm]=String(h).split(':').map(Number); return hh*60+(mm||0); }
+
+document.getElementById('genFinalBtn').addEventListener('click', ()=>{
+  if(!db){ alert('Sin conexión a Firebase.'); return; }
+  const jornada = document.getElementById('cfgJornada').value;
+  const prefix = jornada==='Recluta Open' ? 'rec' : 'sen';
+
+  const entradas = Object.entries((data&&data.rondas)||{}).filter(([k,r])=>r.categoria===jornada);
+  if(!entradas.length){ alert('Primero genera la fase regular de esta jornada.'); return; }
+
+  const stats = computeStats();
+  const pool = Object.values(stats)
+    .filter(s=>s.categoria===jornada && s.pj>0)
+    .sort((a,b)=> b.pts-a.pts || b.pg-a.pg || a.nombre.localeCompare(b.nombre));
+  if(pool.length < 4){ alert('Aún no hay suficientes resultados cargados para clasificar.'); return; }
+
+  let topN = parseInt(document.getElementById('cfgTops').value)||8;
+  topN = Math.max(4, Math.floor(topN/4)*4);
+  if(pool.length < topN){ topN = Math.floor(pool.length/4)*4; }
+  if(topN < 4){ alert('No alcanzan jugadores con resultados para la fase final.'); return; }
+
+  const tops = pool.slice(0, topN).map(s=>s.nombre);
+  const rondasFinal = parseInt(document.getElementById('cfgRondasFinal').value)||3;
+
+  if(!confirm(`FASE FINAL · ${jornada}\nClasifican ${topN}:\n${tops.join(', ')}\n\nSe agregarán ${rondasFinal} rondas solo entre ellos. ¿Continuar?`)) return;
+
+  const maxOrden = Math.max(...entradas.map(([k,r])=>r.orden||0));
+  const maxIdx = Math.max(...entradas.map(([k])=>parseInt(k.replace(prefix,''))||0));
+  const ultimaHora = Math.max(...entradas.map(([k,r])=>horaAMin(r.hora||'0:00')));
+
+  const st = { partner:{}, opp:{}, games:{}, rests:{} };
+  const canchas = Math.min(4, Math.floor(topN/4));
+  const updates = {};
+  for(let r=0;r<rondasFinal;r++){
+    const rr = generarRondasPool(tops, canchas, 0, 1, st)[0];
+    const partObj={};
+    rr.partidos.forEach((m,i)=>{ partObj['p'+i]={...m, sa:'', sb:'', estado:'pendiente'}; });
+    updates['rondas/' + prefix + String(maxIdx+1+r).padStart(2,'0')] = {
+      orden: maxOrden+1+r, categoria: jornada, cruzada:false, final:true,
+      hora: horaStr(ultimaHora + (r+1)*MIN_POR_RONDA),
+      partidos: partObj, descansan: rr.descansan
+    };
+  }
+  db.ref(ROOT + '/americano').update(updates)
+    .then(()=>{ document.getElementById('genFinalNote').innerHTML = `<span style="color:var(--win);font-weight:700;">✔ Fase final publicada: ${rondasFinal} rondas con los ${topN} mejores.</span>`; })
+    .catch(e=>alert('Error: '+e.message));
 });
 
 /* ============ MARCADORES ============ */
