@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Проект Pickleball — Acceso de Operativo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#e6ddc4;
+    --paper-dark:#d8cca6;
+    --ink:#201e17;
+    --ink-soft:#4a453b;
+    --stamp-red:#8c231f;
+    --stamp-red-dark:#6b1a17;
+    --bronze:#a5822c;
+    --steel:#414d52;
+    --void:#0d0f0e;
+    --void-2:#161a17;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse at 30% 0%, rgba(140,35,31,0.10), transparent 55%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px),
+      var(--void);
+    color:var(--paper);
+    font-family:'JetBrains Mono', monospace;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:40px 16px;
+  }
+  .wrap{ width:100%; max-width:560px; }
+
+  .eyebrow{
+    text-align:center;
+    font-size:11px;
+    letter-spacing:0.35em;
+    color:var(--bronze);
+    margin-bottom:10px;
+    text-transform:uppercase;
+  }
+  h1.title{
+    font-family:'Oswald', sans-serif;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    font-size:clamp(26px, 5vw, 38px);
+    text-align:center;
+    margin:0 0 4px 0;
+    color:var(--paper);
+  }
+  .title span{ color:var(--stamp-red); }
+  .subtitle{
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:12px;
+    letter-spacing:0.12em;
+    margin-bottom:28px;
+    filter:brightness(1.6);
+  }
+
+  /* --- dossier folder --- */
+  .dossier{
+    position:relative;
+    background:
+      linear-gradient(180deg, rgba(0,0,0,0.03), transparent 12%),
+      var(--paper);
+    color:var(--ink);
+    border-radius:2px;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,0.7), 0 2px 0 rgba(255,255,255,0.04) inset;
+    overflow:hidden;
+  }
+  .dossier::before{
+    /* paper grain */
+    content:"";
+    position:absolute; inset:0;
+    background-image:
+      repeating-linear-gradient(90deg, rgba(0,0,0,0.015) 0px, transparent 1px, transparent 2px),
+      repeating-linear-gradient(0deg, rgba(0,0,0,0.015) 0px, transparent 1px, transparent 2px);
+    pointer-events:none;
+  }
+  .tab{
+    background:var(--void-2);
+    color:var(--paper-dark);
+    font-family:'Oswald', sans-serif;
+    font-size:11px;
+    letter-spacing:0.2em;
+    text-transform:uppercase;
+    padding:9px 20px;
+    display:flex;
+    justify-content:space-between;
+    border-bottom:2px solid var(--stamp-red-dark);
+  }
+  .tab b{ color:var(--stamp-red); }
+
+  .dossier-inner{
+    position:relative;
+    padding:30px 30px 26px;
+  }
+
+  .redact{
+    height:9px;
+    background:var(--ink);
+    opacity:0.85;
+    border-radius:1px;
+  }
+  .redact-row{ display:flex; gap:8px; margin-bottom:22px; }
+
+  .field{ margin-bottom:16px; }
+  .field label{
+    display:block;
+    font-size:10.5px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+  }
+  .field input, .field select{
+    width:100%;
+    padding:11px 12px;
+    background:rgba(255,255,255,0.35);
+    border:1px solid rgba(32,30,23,0.35);
+    border-radius:2px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:14px;
+    color:var(--ink);
+    outline:none;
+  }
+  .field input:focus, .field select:focus{ border-color:var(--stamp-red); background:rgba(255,255,255,0.55); }
+
+  .btn-stamp{
+    width:100%;
+    margin-top:8px;
+    padding:14px;
+    background:var(--stamp-red);
+    color:#f3e9d8;
+    border:none;
+    border-radius:2px;
+    font-family:'Oswald', sans-serif;
+    font-weight:600;
+    font-size:14px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    cursor:pointer;
+    transition:transform 0.08s ease, background 0.2s ease;
+  }
+  .btn-stamp:hover{ background:var(--stamp-red-dark); }
+  .btn-stamp:active{ transform:scale(0.97); }
+  .btn-stamp:disabled{ opacity:0.5; cursor:not-allowed; }
+
+  .hint{
+    font-size:10.5px;
+    color:var(--ink-soft);
+    margin-top:10px;
+    line-height:1.5;
+  }
+
+  /* --- ID reveal --- */
+  .id-card{ display:none; }
+  .id-card.show{ display:block; animation:slamIn 0.5s cubic-bezier(.2,1.4,.4,1); }
+  @keyframes slamIn{
+    0%{ opacity:0; transform:scale(1.5) rotate(-8deg); }
+    60%{ opacity:1; }
+    100%{ opacity:1; transform:scale(1) rotate(-2deg); }
+  }
+  .id-top{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px; }
+  .id-eyebrow{ font-size:10px; letter-spacing:0.16em; color:var(--ink-soft); text-transform:uppercase; }
+  .id-codename{
+    font-family:'Oswald', sans-serif;
+    font-weight:700;
+    text-transform:uppercase;
+    font-size:clamp(24px, 6vw, 32px);
+    color:var(--ink);
+    margin:2px 0 0 0;
+    letter-spacing:0.03em;
+  }
+  .stamp-badge{
+    border:3px solid var(--stamp-red);
+    color:var(--stamp-red);
+    font-family:'Oswald', sans-serif;
+    font-weight:700;
+    font-size:11px;
+    letter-spacing:0.12em;
+    padding:6px 10px;
+    border-radius:50%;
+    transform:rotate(8deg);
+    text-align:center;
+    line-height:1.15;
+    opacity:0.9;
+  }
+  .id-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px 20px;
+    padding-top:16px;
+    border-top:1px dashed rgba(32,30,23,0.35);
+  }
+  .id-field b{
+    display:block;
+    font-size:9.5px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:3px;
+  }
+  .id-field span{ font-size:14px; color:var(--ink); }
+  .barcode{
+    margin-top:20px;
+    height:34px;
+    background:repeating-linear-gradient(90deg, var(--ink) 0px, var(--ink) 2px, transparent 2px, transparent 5px, var(--ink) 5px, var(--ink) 6px, transparent 6px, transparent 9px);
+    opacity:0.8;
+  }
+  .id-footer{
+    display:flex; justify-content:space-between; align-items:center; margin-top:8px;
+    font-size:9.5px; color:var(--ink-soft); letter-spacing:0.08em;
+  }
+
+  .real-name-note{
+    font-size:10px; color:var(--ink-soft); margin-top:16px; line-height:1.5;
+    border-top:1px dashed rgba(32,30,23,0.3); padding-top:12px;
+  }
+
+  .roster-toggle{
+    display:block; margin:22px auto 0; background:none; border:none;
+    color:var(--bronze); font-family:'JetBrains Mono',monospace; font-size:11px;
+    letter-spacing:0.1em; text-transform:uppercase; cursor:pointer; text-align:center;
+    text-decoration:underline; text-underline-offset:3px;
+  }
+  .roster{
+    display:none;
+    margin-top:16px;
+    background:var(--void-2);
+    border:1px solid rgba(165,130,44,0.25);
+    border-radius:2px;
+    padding:14px 16px;
+    max-height:180px;
+    overflow-y:auto;
+  }
+  .roster.show{ display:block; }
+  .roster-row{
+    display:flex; justify-content:space-between;
+    font-size:12px; padding:5px 0; color:var(--paper-dark);
+    border-bottom:1px solid rgba(255,255,255,0.05);
+  }
+  .roster-row:last-child{ border-bottom:none; }
+  .roster-row .rk{ color:var(--bronze); font-size:10px; }
+  .roster-empty{ font-size:11px; color:var(--ink-soft); filter:brightness(1.6); }
+
+  .footer-note{
+    text-align:center; font-size:10px; color:var(--ink-soft);
+    filter:brightness(1.8); margin-top:20px; letter-spacing:0.08em;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Archivo No. 07 — Uso restringido</div>
+  <h1 class="title">ПОДПОЛЬНЫЙ <span>ПИКЛБОЛ</span></h1>
+  <div class="subtitle">acceso de operativo</div>
+
+  <div class="dossier">
+    <div class="tab"><span>EXPEDIENTE DE OPERATIVO</span><b>ALTO SECRETO</b></div>
+    <div class="dossier-inner">
+
+      <div id="loginView">
+        <div class="redact-row">
+          <div class="redact" style="width:70%"></div>
+          <div class="redact" style="width:22%"></div>
+        </div>
+
+        <div class="field">
+          <label for="realName">Nombre real</label>
+          <input id="realName" type="text" placeholder="Ej: Camila Ríos" autocomplete="off">
+        </div>
+
+        <div class="field">
+          <label for="unit">Unidad / categoría</label>
+          <select id="unit">
+            <option value="Recluta Open">Recluta Open</option>
+            <option value="Sargento Senior">Sargento Senior</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="dupr">Código DUPR</label>
+          <input id="dupr" type="text" placeholder="Ej: 3.452 o tu ID DUPR" autocomplete="off">
+        </div>
+
+        <button class="btn-stamp" id="assignBtn">Solicitar identidad encubierta</button>
+        <div class="hint">Al presionar, la red te asignará un nombre en clave permanente. Tu nombre real queda registrado solo para fines de organización del torneo.</div>
+      </div>
+
+      <div class="id-card" id="idCard">
+        <div class="id-top">
+          <div>
+            <div class="id-eyebrow">Identidad asignada</div>
+            <div class="id-codename" id="codenameOut">—</div>
+          </div>
+          <div class="stamp-badge">APRO<br>BADO</div>
+        </div>
+
+        <div class="id-grid">
+          <div class="id-field"><b>Categoría</b><span id="rankOut">—</span></div>
+          <div class="id-field"><b>Cód. operativo</b><span id="codeOut">—</span></div>
+          <div class="id-field"><b>Cód. DUPR</b><span id="duprOut">—</span></div>
+          <div class="id-field"><b>Fecha de reclutamiento</b><span id="dateOut">—</span></div>
+        </div>
+
+        <div class="barcode"></div>
+        <div class="id-footer"><span>OPERACIÓN PICKLBOL</span><span>VÁLIDO PARA EL TORNEO</span></div>
+
+        <div class="real-name-note">Este nombre en clave es tu identidad pública en el cuadro, el leaderboard y las citaciones a partido. Guárdalo — volverás a obtenerlo si ingresas con el mismo nombre real.</div>
+      </div>
+
+      <button class="roster-toggle" id="rosterToggle" style="display:none">Ver archivo de agentes reclutados ▾</button>
+      <div class="roster" id="roster" style="display:none"></div>
+    </div>
+  </div>
+
+  <div class="footer-note">Los nombres en clave asignados son visibles para todos los operativos de la red.</div>
+</div>
+
+<form name="acceso-agentes" data-netlify="true" netlify-honeypot="empresa" hidden>
+  <input type="text" name="nombre">
+  <input type="text" name="codename">
+  <input type="text" name="categoria">
+  <input type="text" name="dupr">
+  <input type="text" name="empresa">
+</form>
+
+<script>
+const NAMES_M = ["Ivan","Dmitri","Alexei","Yuri","Mikhail","Nikolai","Sergei","Viktor","Boris","Igor","Anton","Pavel","Oleg","Fyodor","Grigori","Vlad","Roman","Kirill","Stepan","Artem"];
+const NAMES_F = ["Natasha","Katarina","Irina","Olga","Anastasia","Svetlana","Yelena","Vera","Larisa","Zoya","Marina","Galina","Oksana","Polina","Tatiana","Nadia","Raisa","Ksenia","Alina","Vika"];
+const SURNAMES_M = ["Volkov","Sokolov","Orlov","Petrov","Ivanov","Kuznetsov","Morozov","Popov","Lebedev","Novikov","Fedorov","Zhukov","Belov","Golubev","Semenov","Vasiliev","Egorov","Pavlov","Antonov","Melnikov"];
+const SURNAMES_F = SURNAMES_M.map(s => s.endsWith('v') ? s + 'a' : s + 'a');
+
+function hashString(str){
+  let h = 0;
+  for(let i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i)) >>> 0; }
+  return h;
+}
+function normalize(name){ return name.trim().toLowerCase().replace(/\s+/g,' '); }
+
+function generateCodename(realName){
+  const norm = normalize(realName);
+  const h = hashString(norm);
+  const isF = (h % 2) === 0;
+  const firstPool = isF ? NAMES_F : NAMES_M;
+  const lastPool = isF ? SURNAMES_F : SURNAMES_M;
+  const first = firstPool[h % firstPool.length];
+  const last = lastPool[Math.floor(h/7) % lastPool.length];
+  const code = "OP-" + (100 + (h % 900));
+  return { codename: `${first} ${last}`, code };
+}
+
+function todayStr(){
+  const d = new Date();
+  return d.toLocaleDateString('es-CL', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+
+function encodeForm(data){
+  return Object.keys(data).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(data[k])).join('&');
+}
+
+async function logAccess(record, realName){
+  try{
+    await fetch('/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: encodeForm({
+        'form-name': 'acceso-agentes',
+        nombre: realName,
+        codename: record.codename,
+        categoria: record.unit,
+        dupr: record.dupr
+      })
+    });
+  }catch(e){ console.error('No se pudo registrar el acceso', e); }
+}
+
+document.getElementById('assignBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('assignBtn');
+  const realNameInput = document.getElementById('realName');
+  const duprInput = document.getElementById('dupr');
+  const unit = document.getElementById('unit').value;
+  const realName = realNameInput.value.trim();
+  const dupr = duprInput.value.trim();
+  if(!realName){ realNameInput.focus(); realNameInput.style.borderColor = '#8c231f'; return; }
+  if(!dupr){ duprInput.focus(); duprInput.style.borderColor = '#8c231f'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Asignando identidad...';
+
+  const { codename, code } = generateCodename(realName);
+  const record = { codename, code, unit, dupr, date: todayStr() };
+
+  document.getElementById('codenameOut').textContent = record.codename;
+  document.getElementById('rankOut').textContent = record.unit;
+  document.getElementById('codeOut').textContent = record.code;
+  document.getElementById('duprOut').textContent = record.dupr || '—';
+  document.getElementById('dateOut').textContent = record.date;
+
+  document.getElementById('loginView').style.display = 'none';
+  document.getElementById('idCard').classList.add('show');
+
+  btn.disabled = false;
+  btn.textContent = 'Solicitar identidad encubierta';
+
+  logAccess(record, realName);
+});
+</script>
+</body>
+</html>

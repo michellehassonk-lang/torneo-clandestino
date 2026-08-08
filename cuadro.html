@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Подпольный Пиклбол — Cuadro de la Operación</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#e6ddc4;
+    --paper-dark:#d8cca6;
+    --ink:#201e17;
+    --ink-soft:#4a453b;
+    --stamp-red:#8c231f;
+    --stamp-red-dark:#6b1a17;
+    --bronze:#a5822c;
+    --steel:#414d52;
+    --void:#0d0f0e;
+    --void-2:#161a17;
+    --win:#3d6b3f;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse at 30% 0%, rgba(140,35,31,0.10), transparent 55%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px),
+      var(--void);
+    color:var(--paper);
+    font-family:'JetBrains Mono', monospace;
+    min-height:100vh;
+    padding:36px 14px 70px;
+  }
+  .wrap{ width:100%; max-width:960px; margin:0 auto; }
+
+  .eyebrow{
+    text-align:center; font-size:11px; letter-spacing:0.35em;
+    color:var(--bronze); margin-bottom:10px; text-transform:uppercase;
+  }
+  h1.title{
+    font-family:'Oswald', sans-serif; font-weight:700; text-transform:uppercase;
+    letter-spacing:0.06em; font-size:clamp(24px, 5vw, 34px);
+    text-align:center; margin:0 0 4px 0; color:var(--paper);
+  }
+  .title span{ color:var(--stamp-red); }
+  .subtitle{
+    text-align:center; color:var(--ink-soft); font-size:12px;
+    letter-spacing:0.12em; margin-bottom:8px; filter:brightness(1.6);
+  }
+  .status-line{
+    text-align:center; font-size:10.5px; color:var(--bronze);
+    letter-spacing:0.08em; margin-bottom:24px;
+  }
+  .status-line .dot{
+    display:inline-block; width:6px; height:6px; border-radius:50%;
+    background:var(--win); margin-right:6px; animation:pulse 1.6s infinite;
+  }
+  .status-line .dot.off{ background:var(--stamp-red); animation:none; }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+  /* ---- tabs de categoría ---- */
+  .cat-tabs{
+    display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin-bottom:26px;
+  }
+  .cat-tab{
+    background:var(--void-2); color:var(--paper-dark);
+    border:1px solid rgba(165,130,44,0.35); border-radius:2px;
+    font-family:'Oswald', sans-serif; font-size:12px; letter-spacing:0.14em;
+    text-transform:uppercase; padding:9px 18px; cursor:pointer;
+    transition:all 0.15s ease;
+  }
+  .cat-tab:hover{ border-color:var(--bronze); }
+  .cat-tab.active{ background:var(--stamp-red); color:#f3e9d8; border-color:var(--stamp-red); }
+
+  /* ---- célula (grupo) ---- */
+  .cell{
+    background:var(--paper); color:var(--ink); border-radius:2px;
+    box-shadow:0 20px 40px -18px rgba(0,0,0,0.65);
+    margin-bottom:26px; overflow:hidden;
+  }
+  .cell-tab{
+    background:var(--void-2); color:var(--paper-dark);
+    font-family:'Oswald', sans-serif; font-size:12px; letter-spacing:0.16em;
+    text-transform:uppercase; padding:10px 18px;
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    border-bottom:2px solid var(--stamp-red-dark);
+  }
+  .cell-tab b{ color:var(--stamp-red); font-size:10.5px; white-space:nowrap; }
+  .cell-inner{ padding:18px 18px 20px; }
+
+  table.standings{ width:100%; border-collapse:collapse; margin-bottom:20px; }
+  table.standings th{
+    text-align:left; font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--ink-soft); padding:0 6px 8px; border-bottom:1px solid rgba(32,30,23,0.3);
+  }
+  table.standings td{
+    padding:8px 6px; font-size:13px; border-bottom:1px dashed rgba(32,30,23,0.18);
+  }
+  table.standings tr.leader td{ font-weight:700; }
+  table.standings td.num{ text-align:center; }
+  .pos{ color:var(--bronze); font-weight:700; margin-right:6px; }
+
+  .missions-label{
+    font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--ink-soft); margin-bottom:8px;
+  }
+  .mission{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:9px 6px; border-bottom:1px solid rgba(32,30,23,0.12);
+    font-size:13px; border-radius:2px;
+  }
+  .mission:last-child{ border-bottom:none; }
+  .mission.editable{ cursor:pointer; }
+  .mission.editable:hover{ background:rgba(140,35,31,0.07); }
+  .mission .players{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .mission .score{
+    font-family:'Oswald', sans-serif; font-weight:600; min-width:64px; text-align:center;
+    flex-shrink:0;
+  }
+  .mission .score.played{ color:var(--stamp-red); }
+  .mission .score.pending{ color:var(--ink-soft); font-size:10px; letter-spacing:0.08em; text-transform:uppercase; }
+  .vs{ color:var(--ink-soft); font-size:10px; }
+  .winner{ text-decoration:underline; text-underline-offset:3px; text-decoration-color:var(--bronze); }
+
+  .empty, .loading{
+    text-align:center; padding:50px 20px; color:var(--paper-dark); font-size:13px; opacity:0.7;
+  }
+
+  /* ---- barra admin ---- */
+  .admin-bar{
+    display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin:34px 0 0;
+  }
+  .btn-ghost{
+    background:none; border:1px solid rgba(165,130,44,0.4); color:var(--bronze);
+    font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:0.08em;
+    text-transform:uppercase; padding:9px 16px; border-radius:2px; cursor:pointer;
+  }
+  .btn-ghost:hover{ border-color:var(--bronze); }
+  .btn-red{
+    background:var(--stamp-red); border:none; color:#f3e9d8;
+    font-family:'Oswald', sans-serif; font-weight:600; font-size:12px;
+    letter-spacing:0.1em; text-transform:uppercase; padding:10px 18px;
+    border-radius:2px; cursor:pointer;
+  }
+  .btn-red:hover{ background:var(--stamp-red-dark); }
+
+  /* ---- panel de edición ---- */
+  .panel{
+    background:var(--paper); color:var(--ink); border-radius:2px;
+    box-shadow:0 20px 40px -18px rgba(0,0,0,0.65);
+    margin:26px 0; overflow:hidden; display:none;
+  }
+  .panel.show{ display:block; }
+  .panel-inner{ padding:20px; }
+  .panel h3{
+    font-family:'Oswald', sans-serif; text-transform:uppercase; letter-spacing:0.08em;
+    font-size:15px; margin:0 0 14px;
+  }
+  .panel .field{ margin-bottom:12px; }
+  .panel label{
+    display:block; font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
+    color:var(--ink-soft); margin-bottom:5px;
+  }
+  .panel input, .panel select, .panel textarea{
+    width:100%; padding:10px 11px; background:rgba(255,255,255,0.4);
+    border:1px solid rgba(32,30,23,0.35); border-radius:2px;
+    font-family:'JetBrains Mono', monospace; font-size:13px; color:var(--ink); outline:none;
+  }
+  .panel textarea{ min-height:90px; resize:vertical; }
+  .panel input:focus, .panel textarea:focus, .panel select:focus{ border-color:var(--stamp-red); }
+  .panel-row{ display:flex; gap:12px; flex-wrap:wrap; }
+  .panel-row > *{ flex:1; min-width:180px; }
+  .panel .note{ font-size:10px; color:var(--ink-soft); line-height:1.5; margin-top:8px; }
+  .grupo-admin{
+    border:1px dashed rgba(32,30,23,0.3); border-radius:2px; padding:12px; margin-bottom:12px;
+    display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;
+  }
+  .grupo-admin .meta{ font-size:12px; }
+  .grupo-admin .meta b{ font-family:'Oswald',sans-serif; letter-spacing:0.04em; }
+  .mini-btn{
+    background:none; border:1px solid rgba(140,35,31,0.5); color:var(--stamp-red);
+    font-size:10px; padding:6px 10px; border-radius:2px; cursor:pointer;
+    font-family:'JetBrains Mono',monospace; text-transform:uppercase; letter-spacing:0.06em;
+  }
+  .mini-btn:hover{ background:rgba(140,35,31,0.08); }
+
+  /* ---- modal marcador ---- */
+  .modal-back{
+    display:none; position:fixed; inset:0; background:rgba(13,15,14,0.85);
+    align-items:center; justify-content:center; z-index:50; padding:16px;
+  }
+  .modal-back.show{ display:flex; }
+  .modal{
+    background:var(--paper); color:var(--ink); border-radius:2px; width:100%; max-width:400px;
+    box-shadow:0 30px 60px rgba(0,0,0,0.7); overflow:hidden;
+    animation:slamIn 0.35s cubic-bezier(.2,1.4,.4,1);
+  }
+  @keyframes slamIn{
+    0%{ opacity:0; transform:scale(1.3) rotate(-4deg); }
+    100%{ opacity:1; transform:scale(1) rotate(0); }
+  }
+  .modal .tabline{
+    background:var(--void-2); color:var(--paper-dark); font-family:'Oswald',sans-serif;
+    font-size:11px; letter-spacing:0.18em; text-transform:uppercase; padding:9px 16px;
+    border-bottom:2px solid var(--stamp-red-dark);
+  }
+  .modal-inner{ padding:20px; }
+  .score-row{ display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+  .score-row .name{ flex:1; font-size:13px; }
+  .score-row input{
+    width:70px; padding:10px; text-align:center; font-size:16px;
+    font-family:'Oswald',sans-serif; font-weight:600;
+    background:rgba(255,255,255,0.4); border:1px solid rgba(32,30,23,0.35); border-radius:2px;
+    color:var(--ink); outline:none;
+  }
+  .modal-actions{ display:flex; gap:10px; margin-top:16px; }
+  .modal-actions button{ flex:1; }
+
+  .footer-note{
+    text-align:center; font-size:10px; color:var(--ink-soft);
+    filter:brightness(1.8); margin-top:24px; letter-spacing:0.08em;
+  }
+  .edit-indicator{
+    display:none; text-align:center; margin-bottom:18px;
+    font-size:11px; color:var(--stamp-red); letter-spacing:0.14em; text-transform:uppercase;
+  }
+  .edit-indicator.show{ display:block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Archivo No. 07 — Uso restringido</div>
+  <h1 class="title">ПОДПОЛЬНЫЙ <span>ПИКЛБОЛ</span></h1>
+  <div class="subtitle">cuadro de la operación · round robin</div>
+  <div class="status-line"><span class="dot off" id="connDot"></span><span id="connText">conectando con la red...</span></div>
+
+  <div class="edit-indicator" id="editIndicator">■ Modo edición activo — toca una misión para cargar marcador ■</div>
+
+  <div class="cat-tabs" id="catTabs"></div>
+
+  <div id="content"><div class="loading">Descifrando transmisiones de la red...</div></div>
+
+  <!-- Panel admin -->
+  <div class="panel" id="adminPanel">
+    <div class="tabline" style="background:var(--void-2);color:var(--paper-dark);font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;padding:9px 16px;border-bottom:2px solid var(--stamp-red-dark);">CENTRO DE COMANDO</div>
+    <div class="panel-inner">
+      <h3>Crear célula (grupo)</h3>
+      <div class="panel-row">
+        <div class="field">
+          <label>Categoría</label>
+          <input id="newCat" type="text" placeholder="Ej: Recluta Open" list="catList">
+          <datalist id="catList"></datalist>
+        </div>
+        <div class="field">
+          <label>Nombre de la célula</label>
+          <input id="newGroup" type="text" placeholder="Ej: Célula A">
+        </div>
+      </div>
+      <div class="field">
+        <label>Agentes (uno por línea — usa los nombres en clave)</label>
+        <textarea id="newPlayers" placeholder="Dmitri Volkov&#10;Katarina Orlova&#10;Igor Sokolov&#10;Nadia Petrova"></textarea>
+      </div>
+      <button class="btn-red" id="createGroupBtn">Crear célula y generar misiones</button>
+      <div class="note">Se generan automáticamente todos los cruces round robin (todos contra todos) de la célula.</div>
+
+      <h3 style="margin-top:26px;">Células existentes</h3>
+      <div id="groupAdminList"><div class="note">—</div></div>
+    </div>
+  </div>
+
+  <div class="admin-bar">
+    <button class="btn-ghost" id="editToggle">🔒 Modo edición</button>
+    <button class="btn-ghost" id="csvBtn">📥 Descargar CSV</button>
+  </div>
+
+  <div class="footer-note">Actualización en tiempo real · Подпольный Пиклбол</div>
+</div>
+
+<!-- Modal marcador -->
+<div class="modal-back" id="modalBack">
+  <div class="modal">
+    <div class="tabline">INFORME DE MISIÓN</div>
+    <div class="modal-inner">
+      <div class="score-row"><div class="name" id="mName1">—</div><input id="mScore1" type="number" min="0" inputmode="numeric"></div>
+      <div class="score-row"><div class="name" id="mName2">—</div><input id="mScore2" type="number" min="0" inputmode="numeric"></div>
+      <div class="modal-actions">
+        <button class="btn-ghost" id="mClear">Borrar resultado</button>
+        <button class="btn-red" id="mSave">Guardar</button>
+      </div>
+      <div class="note" style="margin-top:12px;font-size:10px;color:var(--ink-soft);">Deja ambos marcadores y guarda. "Borrar resultado" vuelve la misión a pendiente.</div>
+      <button class="btn-ghost" id="mCancel" style="width:100%;margin-top:10px;">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+/* ===================================================================
+   CONFIGURACIÓN — PEGA AQUÍ TU CONFIG DE FIREBASE
+   Consola Firebase → tu proyecto → ⚙ Configuración del proyecto →
+   Tus apps → SDK de configuración (elige "Config")
+   =================================================================== */
+const firebaseConfig = {
+  apiKey: "PEGA_AQUI",
+  authDomain: "PEGA_AQUI",
+  databaseURL: "PEGA_AQUI",   // ¡importante! debe ser la Realtime Database URL
+  projectId: "PEGA_AQUI",
+  storageBucket: "PEGA_AQUI",
+  messagingSenderId: "PEGA_AQUI",
+  appId: "PEGA_AQUI"
+};
+
+/* Clave del modo edición (cámbiala por la tuya) */
+const ADMIN_PIN = "kgb1959";
+
+/* Nodo raíz en la base de datos (puedes cambiar por torneo/edición) */
+const ROOT = "podpolny_torneo_1";
+/* =================================================================== */
+
+let db = null, state = { grupos:{}, partidos:{} };
+let editMode = false;
+let activeCat = null;
+let currentMatchId = null;
+
+function esc(str){
+  const d = document.createElement('div');
+  d.textContent = str == null ? '' : str;
+  return d.innerHTML;
+}
+
+/* ---------- Firebase ---------- */
+try{
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.database();
+  db.ref(ROOT).on('value', snap => {
+    const val = snap.val() || {};
+    state.grupos = val.grupos || {};
+    state.partidos = val.partidos || {};
+    setConn(true);
+    render();
+  }, err => {
+    console.error(err);
+    setConn(false, 'sin conexión — revisa la configuración de Firebase');
+  });
+}catch(e){
+  console.error(e);
+  setConn(false, 'configura Firebase en el código para activar la red');
+  document.getElementById('content').innerHTML = '<div class="empty">Falta pegar la configuración de Firebase en el código.<br>Busca "PEGA_AQUI" en el archivo.</div>';
+}
+
+function setConn(ok, msg){
+  document.getElementById('connDot').classList.toggle('off', !ok);
+  document.getElementById('connText').textContent = ok ? 'actualización en vivo' : (msg || 'sin conexión');
+}
+
+/* ---------- lógica de standings ---------- */
+function computeStandings(matches, players){
+  const stats = {};
+  (players || []).forEach(p => { stats[p] = { name:p, w:0, l:0, pf:0, pc:0 }; });
+  const ensure = (name) => {
+    if(!stats[name]) stats[name] = { name, w:0, l:0, pf:0, pc:0 };
+    return stats[name];
+  };
+  matches.forEach(m => {
+    if(m.estado !== 'jugado') return;
+    const sa = parseInt(m.sa), sb = parseInt(m.sb);
+    if(isNaN(sa) || isNaN(sb)) return;
+    const a = ensure(m.a), b = ensure(m.b);
+    a.pf += sa; a.pc += sb;
+    b.pf += sb; b.pc += sa;
+    if(sa > sb){ a.w++; b.l++; } else if(sb > sa){ b.w++; a.l++; }
+  });
+  return Object.values(stats).sort((x,y) => (y.w - y.l) - (x.w - x.l) || (y.pf-y.pc) - (x.pf-x.pc) || x.name.localeCompare(y.name));
+}
+
+/* ---------- render ---------- */
+function getCategorias(){
+  const cats = new Set();
+  Object.values(state.grupos).forEach(g => cats.add(g.categoria || 'General'));
+  return [...cats].sort();
+}
+
+function render(){
+  const cats = getCategorias();
+  const tabsEl = document.getElementById('catTabs');
+  const content = document.getElementById('content');
+
+  // datalist para el panel admin
+  document.getElementById('catList').innerHTML = cats.map(c => `<option value="${esc(c)}">`).join('');
+
+  if(!cats.length){
+    tabsEl.innerHTML = '';
+    content.innerHTML = '<div class="empty">Aún no hay células activas en la operación.<br>' + (editMode ? 'Usa el Centro de Comando para crear la primera.' : '') + '</div>';
+    renderAdminGroups();
+    return;
+  }
+
+  if(!activeCat || !cats.includes(activeCat)) activeCat = cats[0];
+
+  tabsEl.innerHTML = cats.map(c =>
+    `<button class="cat-tab ${c===activeCat?'active':''}" data-cat="${esc(c)}">${esc(c)}</button>`
+  ).join('');
+  tabsEl.querySelectorAll('.cat-tab').forEach(btn => {
+    btn.addEventListener('click', () => { activeCat = btn.dataset.cat; render(); });
+  });
+
+  const grupos = Object.entries(state.grupos)
+    .filter(([id,g]) => (g.categoria || 'General') === activeCat)
+    .sort((a,b) => (a[1].nombre||'').localeCompare(b[1].nombre||''));
+
+  let html = '';
+  grupos.forEach(([gid, g]) => {
+    const matches = Object.entries(state.partidos)
+      .filter(([id,m]) => m.grupoId === gid)
+      .map(([id,m]) => ({...m, id}));
+    const played = matches.filter(m => m.estado === 'jugado').length;
+    const standings = computeStandings(matches, g.jugadores);
+
+    html += `<div class="cell">
+      <div class="cell-tab"><span>${esc(g.nombre)}</span><b>${played}/${matches.length} MISIONES</b></div>
+      <div class="cell-inner">`;
+
+    if(standings.length){
+      html += `<table class="standings">
+        <thead><tr><th>Agente</th><th class="num">G</th><th class="num">P</th><th class="num">Dif.</th></tr></thead><tbody>`;
+      standings.forEach((s,i) => {
+        html += `<tr class="${i===0 && played>0 ? 'leader':''}"><td><span class="pos">${i+1}</span>${esc(s.name)}</td><td class="num">${s.w}</td><td class="num">${s.l}</td><td class="num">${s.pf-s.pc>=0?'+':''}${s.pf-s.pc}</td></tr>`;
+      });
+      html += `</tbody></table>`;
+    }
+
+    html += `<div class="missions-label">Misiones</div>`;
+    matches.sort((a,b) => (a.orden||0)-(b.orden||0)).forEach(m => {
+      const played = m.estado === 'jugado';
+      const sa = parseInt(m.sa), sb = parseInt(m.sb);
+      const aWin = played && sa > sb, bWin = played && sb > sa;
+      html += `<div class="mission ${editMode?'editable':''}" data-mid="${m.id}">
+        <div class="players"><span class="${aWin?'winner':''}">${esc(m.a)}</span> <span class="vs">vs</span> <span class="${bWin?'winner':''}">${esc(m.b)}</span></div>
+        <div class="score ${played?'played':'pending'}">${played ? `${esc(m.sa)}–${esc(m.sb)}` : 'Pendiente'}</div>
+      </div>`;
+    });
+
+    html += `</div></div>`;
+  });
+
+  content.innerHTML = html || '<div class="empty">No hay células en esta categoría.</div>';
+
+  if(editMode){
+    content.querySelectorAll('.mission').forEach(el => {
+      el.addEventListener('click', () => openMatchModal(el.dataset.mid));
+    });
+  }
+
+  renderAdminGroups();
+}
+
+function renderAdminGroups(){
+  const el = document.getElementById('groupAdminList');
+  const entries = Object.entries(state.grupos);
+  if(!entries.length){ el.innerHTML = '<div class="note">Aún no hay células creadas.</div>'; return; }
+  el.innerHTML = entries.sort((a,b)=>(a[1].nombre||'').localeCompare(b[1].nombre||'')).map(([gid,g]) => {
+    const n = Object.values(state.partidos).filter(m => m.grupoId === gid).length;
+    return `<div class="grupo-admin">
+      <div class="meta"><b>${esc(g.nombre)}</b> · ${esc(g.categoria||'General')} · ${(g.jugadores||[]).length} agentes · ${n} misiones</div>
+      <button class="mini-btn" data-del="${gid}">Eliminar célula</button>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-del]').forEach(btn => {
+    btn.addEventListener('click', () => deleteGroup(btn.dataset.del));
+  });
+}
+
+/* ---------- modo edición ---------- */
+document.getElementById('editToggle').addEventListener('click', () => {
+  if(editMode){
+    editMode = false;
+    document.getElementById('editToggle').textContent = '🔒 Modo edición';
+    document.getElementById('adminPanel').classList.remove('show');
+    document.getElementById('editIndicator').classList.remove('show');
+    render();
+    return;
+  }
+  const pin = prompt('Clave de acceso al Centro de Comando:');
+  if(pin === null) return;
+  if(pin !== ADMIN_PIN){ alert('Clave incorrecta. El incidente ha sido reportado al Politburó.'); return; }
+  editMode = true;
+  document.getElementById('editToggle').textContent = '🔓 Salir de edición';
+  document.getElementById('adminPanel').classList.add('show');
+  document.getElementById('editIndicator').classList.add('show');
+  render();
+});
+
+/* ---------- crear / eliminar grupos ---------- */
+document.getElementById('createGroupBtn').addEventListener('click', () => {
+  if(!db){ alert('Sin conexión a Firebase.'); return; }
+  const categoria = document.getElementById('newCat').value.trim() || 'General';
+  const nombre = document.getElementById('newGroup').value.trim();
+  const jugadores = document.getElementById('newPlayers').value.split(/\n/).map(s=>s.trim()).filter(Boolean);
+  if(!nombre){ alert('Ponle nombre a la célula.'); return; }
+  if(jugadores.length < 2){ alert('Necesitas al menos 2 agentes.'); return; }
+
+  const gid = db.ref(ROOT + '/grupos').push().key;
+  const updates = {};
+  updates['grupos/' + gid] = { nombre, categoria, jugadores };
+
+  let orden = 0;
+  for(let i=0;i<jugadores.length;i++){
+    for(let j=i+1;j<jugadores.length;j++){
+      const pid = db.ref(ROOT + '/partidos').push().key;
+      updates['partidos/' + pid] = { grupoId: gid, a: jugadores[i], b: jugadores[j], sa:'', sb:'', estado:'pendiente', orden: orden++ };
+    }
+  }
+  db.ref(ROOT).update(updates).then(() => {
+    document.getElementById('newGroup').value = '';
+    document.getElementById('newPlayers').value = '';
+  }).catch(e => alert('Error al guardar: ' + e.message));
+});
+
+function deleteGroup(gid){
+  if(!confirm('¿Eliminar esta célula y todas sus misiones? Esta acción no se puede deshacer.')) return;
+  const updates = {};
+  updates['grupos/' + gid] = null;
+  Object.entries(state.partidos).forEach(([pid,m]) => {
+    if(m.grupoId === gid) updates['partidos/' + pid] = null;
+  });
+  db.ref(ROOT).update(updates).catch(e => alert('Error: ' + e.message));
+}
+
+/* ---------- modal marcador ---------- */
+function openMatchModal(mid){
+  const m = state.partidos[mid];
+  if(!m) return;
+  currentMatchId = mid;
+  document.getElementById('mName1').textContent = m.a;
+  document.getElementById('mName2').textContent = m.b;
+  document.getElementById('mScore1').value = m.sa || '';
+  document.getElementById('mScore2').value = m.sb || '';
+  document.getElementById('modalBack').classList.add('show');
+}
+document.getElementById('mCancel').addEventListener('click', () => {
+  document.getElementById('modalBack').classList.remove('show');
+});
+document.getElementById('modalBack').addEventListener('click', (e) => {
+  if(e.target === document.getElementById('modalBack')) document.getElementById('modalBack').classList.remove('show');
+});
+document.getElementById('mSave').addEventListener('click', () => {
+  const sa = document.getElementById('mScore1').value.trim();
+  const sb = document.getElementById('mScore2').value.trim();
+  if(sa === '' || sb === ''){ alert('Ingresa ambos marcadores.'); return; }
+  db.ref(ROOT + '/partidos/' + currentMatchId).update({ sa, sb, estado:'jugado' })
+    .then(() => document.getElementById('modalBack').classList.remove('show'))
+    .catch(e => alert('Error: ' + e.message));
+});
+document.getElementById('mClear').addEventListener('click', () => {
+  db.ref(ROOT + '/partidos/' + currentMatchId).update({ sa:'', sb:'', estado:'pendiente' })
+    .then(() => document.getElementById('modalBack').classList.remove('show'))
+    .catch(e => alert('Error: ' + e.message));
+});
+
+/* ---------- exportar CSV ---------- */
+document.getElementById('csvBtn').addEventListener('click', () => {
+  const rows = [['Categoria','Celula','Agente1','Agente2','Marcador1','Marcador2','Estado']];
+  Object.values(state.partidos).forEach(m => {
+    const g = state.grupos[m.grupoId] || {};
+    rows.push([g.categoria||'', g.nombre||'', m.a, m.b, m.sa, m.sb, m.estado]);
+  });
+  const csv = rows.map(r => r.map(c => '"' + String(c==null?'':c).replace(/"/g,'""') + '"').join(',')).join('\n');
+  const blob = new Blob(["\uFEFF" + csv], { type:'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'podpolny_piklbol_resultados.csv';
+  a.click();
+});
+</script>
+</body>
+</html>

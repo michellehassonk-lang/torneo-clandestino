@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Проект Pickleball — Registro de Operativo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#e6ddc4;
+    --paper-dark:#d8cca6;
+    --ink:#201e17;
+    --ink-soft:#4a453b;
+    --stamp-red:#8c231f;
+    --stamp-red-dark:#6b1a17;
+    --bronze:#a5822c;
+    --void:#0d0f0e;
+    --void-2:#161a17;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse at 30% 0%, rgba(140,35,31,0.10), transparent 55%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px),
+      var(--void);
+    color:var(--paper);
+    font-family:'JetBrains Mono', monospace;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:40px 16px;
+  }
+  .wrap{ width:100%; max-width:520px; }
+
+  .eyebrow{
+    text-align:center;
+    font-size:11px;
+    letter-spacing:0.35em;
+    color:var(--bronze);
+    margin-bottom:10px;
+    text-transform:uppercase;
+  }
+  h1.title{
+    font-family:'Oswald', sans-serif;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    font-size:clamp(24px, 5vw, 34px);
+    text-align:center;
+    margin:0 0 4px 0;
+    color:var(--paper);
+  }
+  .title span{ color:var(--stamp-red); }
+  .subtitle{
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:12px;
+    letter-spacing:0.12em;
+    margin-bottom:28px;
+    filter:brightness(1.6);
+  }
+
+  .dossier{
+    position:relative;
+    background:var(--paper);
+    color:var(--ink);
+    border-radius:2px;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,0.7), 0 2px 0 rgba(255,255,255,0.04) inset;
+    overflow:hidden;
+  }
+  .tab{
+    background:var(--void-2);
+    color:var(--paper-dark);
+    font-family:'Oswald', sans-serif;
+    font-size:11px;
+    letter-spacing:0.2em;
+    text-transform:uppercase;
+    padding:9px 20px;
+    display:flex;
+    justify-content:space-between;
+    border-bottom:2px solid var(--stamp-red-dark);
+  }
+  .tab b{ color:var(--stamp-red); }
+
+  .dossier-inner{ padding:30px; }
+
+  .field{ margin-bottom:16px; }
+  .field label{
+    display:block;
+    font-size:10.5px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+  }
+  .field input{
+    width:100%;
+    padding:11px 12px;
+    background:rgba(255,255,255,0.35);
+    border:1px solid rgba(32,30,23,0.35);
+    border-radius:2px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:14px;
+    color:var(--ink);
+    outline:none;
+  }
+  .field input:focus{ border-color:var(--stamp-red); background:rgba(255,255,255,0.55); }
+
+  .btn-stamp{
+    width:100%;
+    margin-top:8px;
+    padding:14px;
+    background:var(--stamp-red);
+    color:#f3e9d8;
+    border:none;
+    border-radius:2px;
+    font-family:'Oswald', sans-serif;
+    font-weight:600;
+    font-size:14px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    cursor:pointer;
+    transition:transform 0.08s ease, background 0.2s ease;
+  }
+  .btn-stamp:hover{ background:var(--stamp-red-dark); }
+  .btn-stamp:active{ transform:scale(0.97); }
+  .btn-stamp:disabled{ opacity:0.5; cursor:not-allowed; }
+
+  .error-msg{
+    font-size:11px; color:var(--stamp-red); margin-top:6px; display:none;
+  }
+
+  /* --- confirmación --- */
+  .confirm{ display:none; text-align:center; }
+  .confirm.show{ display:block; animation:slamIn 0.5s cubic-bezier(.2,1.4,.4,1); }
+  @keyframes slamIn{
+    0%{ opacity:0; transform:scale(1.4) rotate(-6deg); }
+    60%{ opacity:1; }
+    100%{ opacity:1; transform:scale(1) rotate(-2deg); }
+  }
+  .stamp-badge{
+    display:inline-block;
+    border:3px solid var(--stamp-red);
+    color:var(--stamp-red);
+    font-family:'Oswald', sans-serif;
+    font-weight:700;
+    font-size:12px;
+    letter-spacing:0.1em;
+    padding:14px 10px;
+    border-radius:50%;
+    transform:rotate(-6deg);
+    line-height:1.2;
+    margin-bottom:14px;
+  }
+  .confirm h2{
+    font-family:'Oswald', sans-serif;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    font-size:20px;
+    margin:0 0 10px;
+  }
+  .confirm p{ font-size:12.5px; color:var(--ink-soft); line-height:1.6; margin:0 0 4px; }
+
+  .footer-note{
+    text-align:center; font-size:10px; color:var(--ink-soft);
+    filter:brightness(1.8); margin-top:20px; letter-spacing:0.08em;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Archivo No. 07 — Uso restringido</div>
+  <h1 class="title">ПОДПОЛЬНЫЙ <span>ПИКЛБОЛ</span></h1>
+  <div class="subtitle">registro de operativo</div>
+
+  <div class="dossier">
+    <div class="tab"><span>FORMULARIO DE RECLUTAMIENTO</span><b>ALTO SECRETO</b></div>
+    <div class="dossier-inner">
+
+      <form id="regForm" name="registro-torneo" data-netlify="true" netlify-honeypot="empresa">
+        <input type="hidden" name="form-name" value="registro-torneo">
+        <p style="display:none">
+          <label>No llenar: <input name="empresa"></label>
+        </p>
+
+        <div class="field">
+          <label for="nombre">Nombre</label>
+          <input id="nombre" name="nombre" type="text" placeholder="Nombre completo" autocomplete="off">
+        </div>
+
+        <div class="field">
+          <label for="dupr">DUPR ID</label>
+          <input id="dupr" name="dupr" type="text" placeholder="Ej: 3.452 o tu ID DUPR" autocomplete="off">
+        </div>
+
+        <div class="field">
+          <label for="telefono">Teléfono</label>
+          <input id="telefono" name="telefono" type="tel" placeholder="+56 9 1234 5678" autocomplete="off">
+        </div>
+
+        <div class="error-msg" id="errorMsg">Completa todos los campos para continuar.</div>
+
+        <button type="submit" class="btn-stamp" id="submitBtn">Enviar solicitud de reclutamiento</button>
+      </form>
+
+      <div class="confirm" id="confirmView">
+        <div class="stamp-badge">RECIBI<br>DO</div>
+        <h2>Solicitud registrada</h2>
+        <p>Tu ficha quedó archivada en la red.</p>
+        <p>Pronto recibirás tu identidad encubierta y las instrucciones de la operación.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="footer-note">Tus datos quedan archivados para uso exclusivo de la organización del torneo.</div>
+</div>
+
+<script>
+const form = document.getElementById('regForm');
+const errorMsg = document.getElementById('errorMsg');
+
+function encodeForm(data){
+  return Object.keys(data).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(data[k])).join('&');
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const nombre = document.getElementById('nombre').value.trim();
+  const dupr = document.getElementById('dupr').value.trim();
+  const telefono = document.getElementById('telefono').value.trim();
+
+  if(!nombre || !dupr || !telefono){
+    errorMsg.style.display = 'block';
+    return;
+  }
+  errorMsg.style.display = 'none';
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Archivando...';
+
+  try{
+    await fetch('/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: encodeForm({ 'form-name': 'registro-torneo', nombre, dupr, telefono })
+    });
+  }catch(err){
+    console.error('Error al enviar el registro', err);
+  }
+
+  form.style.display = 'none';
+  document.getElementById('confirmView').classList.add('show');
+});
+</script>
+</body>
+</html>
