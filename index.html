@@ -355,6 +355,8 @@
   <input type="text" name="empresa">
 </form>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
 const NAMES_M = ["Ivan","Dmitri","Alexei","Yuri","Mikhail","Nikolai","Sergei","Viktor","Boris","Igor","Anton","Pavel","Oleg","Fyodor","Grigori","Vlad","Roman","Kirill","Stepan","Artem"];
 const NAMES_F = ["Natasha","Katarina","Irina","Olga","Anastasia","Svetlana","Yelena","Vera","Larisa","Zoya","Marina","Galina","Oksana","Polina","Tatiana","Nadia","Raisa","Ksenia","Alina","Vika"];
@@ -367,6 +369,57 @@ function hashString(str){
   return h;
 }
 function normalize(name){ return name.trim().toLowerCase().replace(/\s+/g,' '); }
+function slugify(s){ return s.replace(/[.#$\/\[\]]/g,'').replace(/\s+/g,'_'); }
+
+/* Firebase: registro central de identidades (mismo proyecto que el cuadro) */
+const ROOT = "podpolny_torneo_1";
+let db = null;
+try{
+  firebase.initializeApp({ databaseURL: "https://interclub-pickleball-default-rtdb.firebaseio.com" });
+  db = firebase.database();
+}catch(e){ console.error('Firebase no disponible, usando modo local', e); }
+
+/* Obtiene (o crea) la identidad única de la persona.
+   - Si ya existe en la red: devuelve la misma de siempre, sin duplicar registros.
+   - Si es nueva: busca un nombre en clave LIBRE (evita colisiones) y lo reserva. */
+async function obtenerIdentidad(realName, unit){
+  const norm = normalize(realName);
+  const key = slugify(norm);
+
+  if(!db){
+    const { codename, code } = generateCodename(realName);
+    return { record:{ nombre:realName, codename, code, unit, fecha: todayStr() }, nuevo:true };
+  }
+
+  const snap = await db.ref(ROOT + '/agentes/' + key).get();
+  if(snap.exists()){
+    const r = snap.val();
+    if(r.unit !== unit){
+      r.unit = unit;
+      db.ref(ROOT + '/agentes/' + key + '/unit').set(unit);
+    }
+    return { record: r, nuevo:false };
+  }
+
+  let attempt = 0, codename, code, cslug;
+  while(true){
+    const suffix = norm + (attempt ? '#' + attempt : '');
+    const g = generateCodename(suffix);
+    codename = g.codename; code = g.code;
+    cslug = slugify(codename.toLowerCase());
+    const csnap = await db.ref(ROOT + '/codenames/' + cslug).get();
+    if(!csnap.exists() || (csnap.val() && csnap.val().owner === key)) break;
+    attempt++;
+    if(attempt > 60) break;
+  }
+
+  const record = { nombre: realName, codename, code, unit, fecha: todayStr() };
+  const updates = {};
+  updates['agentes/' + key] = record;
+  updates['codenames/' + cslug] = { owner: key };
+  await db.ref(ROOT).update(updates);
+  return { record, nuevo:true };
+}
 
 function generateCodename(realName){
   const norm = normalize(realName);
@@ -430,24 +483,31 @@ document.getElementById('assignBtn').addEventListener('click', async () => {
   if(!realName){ realNameInput.focus(); realNameInput.style.borderColor = '#8c231f'; return; }
 
   btn.disabled = true;
-  btn.textContent = 'Asignando identidad...';
+  btn.textContent = 'Verificando en la red...';
 
-  const { codename, code } = generateCodename(realName);
-  const record = { codename, code, unit, date: todayStr() };
+  let resultado;
+  try{
+    resultado = await obtenerIdentidad(realName, unit);
+  }catch(e){
+    console.error(e);
+    const { codename, code } = generateCodename(realName);
+    resultado = { record:{ nombre:realName, codename, code, unit, fecha: todayStr() }, nuevo:true };
+  }
+  const record = resultado.record;
 
   document.getElementById('codenameOut').textContent = record.codename;
   document.getElementById('rankOut').textContent = record.unit;
   document.getElementById('codeOut').textContent = record.code;
-  document.getElementById('dateOut').textContent = record.date;
+  document.getElementById('dateOut').textContent = record.fecha || record.date || todayStr();
 
   document.getElementById('loginView').style.display = 'none';
   document.getElementById('idCard').classList.add('show');
-  mostrarCitacion(unit);
+  mostrarCitacion(record.unit);
 
   btn.disabled = false;
   btn.textContent = 'Solicitar identidad encubierta';
 
-  logAccess(record, realName);
+  if(resultado.nuevo){ logAccess(record, realName); }
 });
 </script>
 </body>
