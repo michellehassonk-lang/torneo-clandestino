@@ -189,17 +189,23 @@
       <label class="file-drop" id="fileDrop">
         <input type="file" id="fileInput" accept=".csv,.xlsx,.xls">
         <div class="big">📂 Toca aquí para subir el archivo</div>
-        <div class="note">Columnas: <b>Nombre</b> · <b>Categoria</b> (Recluta Open / Sargento Senior) · <b>Nivel</b> (Avanzado / Intermedio — solo Recluta)</div>
+        <div class="note">Columnas: <b>Nombre</b> · <b>Nivel</b> (1/Avanzado o 2/Intermedio — solo para la jornada 10:30). Los jugadores del archivo quedan asignados a la jornada que elijas abajo.</div>
       </label>
       <div class="preview" id="preview"></div>
 
       <h3 style="margin-top:22px;">2 · Configurar y generar</h3>
       <div class="cfg-row">
-        <div><label>Rondas Recluta</label><input type="number" id="cfgRondasR" value="8" min="1" max="14"></div>
-        <div><label>Rondas Senior</label><input type="number" id="cfgRondasS" value="7" min="1" max="14"></div>
-        <div><label>Rondas cruzadas (Recluta)</label><input type="number" id="cfgCruzadas" value="1" min="0" max="3"></div>
+        <div style="flex:2;min-width:200px;">
+          <label>Jornada a generar</label>
+          <select id="cfgJornada" style="width:100%;padding:9px 10px;background:rgba(255,255,255,0.4);border:1px solid rgba(32,30,23,0.35);border-radius:2px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ink);outline:none;">
+            <option value="Recluta Open">Jornada 10:30 — Recluta Open</option>
+            <option value="Sargento Senior">Jornada 13:00 — Sargento Senior</option>
+          </select>
+        </div>
+        <div><label>Rondas</label><input type="number" id="cfgRondas" value="10" min="1" max="14"></div>
+        <div><label>Rondas mezcladas (solo 10:30)</label><input type="number" id="cfgCruzadas" value="3" min="0" max="5"></div>
       </div>
-      <div class="note">Recluta Open parte 10:30 (canchas 1-2 avanzados, 3-4 intermedios). Sargento Senior parte 13:00. ~15 min por ronda. En las rondas cruzadas se mezclan parejas avanzado+intermedio.</div>
+      <div class="note">Niveles jornada 10:30: <b>1*</b> nunca se mezcla con nivel 2 (en las rondas mezcladas juegan entre ellos en sus canchas) · <b>1</b> juega con los 1 y se combina con los 2 en las rondas mezcladas · <b>2</b> juega entre sí el resto. Cada jornada se genera por separado sin tocar la otra. ~15 min por ronda.</div>
       <button class="btn-red" id="genBtn" style="margin-top:12px;" disabled>Generar fixture de la operación</button>
       <div class="note" id="genNote"></div>
     </div>
@@ -280,8 +286,9 @@ function computeStats(){
       const sa=parseInt(m.sa), sb=parseInt(m.sb);
       if(isNaN(sa)||isNaN(sb)) return;
       const A=[m.a1,m.a2], B=[m.b1,m.b2];
-      A.forEach(p=>{ if(stats[p]){ stats[p].pj++; stats[p].pts+=sa; if(sa>sb){stats[p].pg++; if(r.cruzada) stats[p].crossWins++; if(sb===0&&sa>=15) stats[p].perfect=true;} } });
-      B.forEach(p=>{ if(stats[p]){ stats[p].pj++; stats[p].pts+=sb; if(sb>sa){stats[p].pg++; if(r.cruzada) stats[p].crossWins++; if(sa===0&&sb>=15) stats[p].perfect=true;} } });
+      const esCruz = !!m.cruzada;
+      A.forEach(p=>{ if(stats[p]){ stats[p].pj++; stats[p].pts+=sa; if(sa>sb){stats[p].pg++; if(esCruz) stats[p].crossWins++; if(sb===0&&sa>=15) stats[p].perfect=true;} } });
+      B.forEach(p=>{ if(stats[p]){ stats[p].pj++; stats[p].pts+=sb; if(sb>sa){stats[p].pg++; if(esCruz) stats[p].crossWins++; if(sa===0&&sb>=15) stats[p].perfect=true;} } });
     });
   });
   return stats;
@@ -326,18 +333,21 @@ function render(){
 
   /* Rankings de la categoría activa */
   const jugadoresCat = Object.values(stats).filter(s=>s.categoria===activeCat);
-  const niveles = activeCat==='Recluta Open' ? ['Avanzado','Intermedio'] : [''];
-  const nombreNivel = { 'Avanzado':'CÉLULA ROJA · AVANZADOS', 'Intermedio':'CÉLULA GRIS · INTERMEDIOS', '':'RANKING GENERAL' };
-  niveles.forEach(nv=>{
-    const list = jugadoresCat.filter(s=> (nv==='' || s.nivel===nv))
+  const grupos = activeCat==='Recluta Open'
+    ? [ {label:'CÉLULA ROJA · NIVEL 1', match:s=>s.nivel==='1*'||s.nivel==='1'||s.nivel==='Avanzado'},
+        {label:'CÉLULA GRIS · NIVEL 2', match:s=>s.nivel==='2'||s.nivel==='Intermedio'} ]
+    : [ {label:'RANKING GENERAL', match:s=>true} ];
+  grupos.forEach(g=>{
+    const list = jugadoresCat.filter(g.match)
       .sort((a,b)=> b.pts-a.pts || b.pg-a.pg || a.nombre.localeCompare(b.nombre));
     if(!list.length) return;
-    html += `<div class="cell"><div class="cell-tab"><span>${nombreNivel[nv]}</span><b>RANKING POR PUNTOS</b></div><div class="cell-inner">
+    html += `<div class="cell"><div class="cell-tab"><span>${g.label}</span><b>RANKING POR PUNTOS</b></div><div class="cell-inner">
       <table class="standings"><thead><tr><th>Agente</th><th class="num">PJ</th><th class="num">PG</th><th class="num">Puntos</th></tr></thead><tbody>`;
     list.forEach((s,i)=>{
       const star = conJuego.length && conJuego[0].nombre===s.nombre ? ' <span class="mvp-star">🎖</span>' : '';
       const p15 = s.perfect ? ' <span class="mvp-star">⭐</span>' : '';
-      html += `<tr class="${i===0&&s.pj>0?'leader':''}"><td><span class="pos">${i+1}</span>${esc(s.nombre)}${star}${p15}</td><td class="num">${s.pj}</td><td class="num">${s.pg}</td><td class="num">${s.pts}</td></tr>`;
+      const eliteMark = s.nivel==='1*' ? ' <span class="mvp-star">★</span>' : '';
+      html += `<tr class="${i===0&&s.pj>0?'leader':''}"><td><span class="pos">${i+1}</span>${esc(s.nombre)}${eliteMark}${star}${p15}</td><td class="num">${s.pj}</td><td class="num">${s.pg}</td><td class="num">${s.pts}</td></tr>`;
     });
     html += `</tbody></table></div></div>`;
   });
@@ -450,7 +460,7 @@ function procesarFilas(rows){
   if(iNom<0){ mostrarPreview('<span class="warn">No encontré la columna "Nombre".</span>'); return; }
 
   const jugadores = {};
-  let av=0, inter=0, sen=0, sinNivel=0;
+  let av=0, inter=0, dos2=0, sen=0, sinNivel=0;
   rows.slice(1).forEach(r=>{
     const nombre = String(r[iNom]||'').trim();
     if(!nombre) return;
@@ -458,15 +468,18 @@ function procesarFilas(rows){
     const categoria = catRaw.includes('sarg')||catRaw.includes('senior') ? 'Sargento Senior' : 'Recluta Open';
     let nivel = '';
     if(categoria==='Recluta Open'){
-      const nvRaw = iNiv>=0 ? normalize(String(r[iNiv]||'')) : '';
-      if(nvRaw.startsWith('av')||nvRaw==='1') nivel='Avanzado';
-      else if(nvRaw.startsWith('int')||nvRaw==='2') nivel='Intermedio';
-      else { nivel='Intermedio'; sinNivel++; }
+      const nvRaw = (iNiv>=0 ? normalize(String(r[iNiv]||'')) : '').replace(/\s+/g,'');
+      if(nvRaw.includes('*')) nivel='1*';
+      else if(nvRaw.startsWith('av')||nvRaw==='1') nivel='1';
+      else if(nvRaw.startsWith('int')||nvRaw==='2') nivel='2';
+      else { nivel='2'; sinNivel++; }
     }
     const key = slugify(normalize(nombre));
     jugadores[key] = { nombre, categoria, nivel };
     if(categoria==='Sargento Senior') sen++;
-    else if(nivel==='Avanzado') av++; else inter++;
+    else if(nivel==='1*') av++;
+    else if(nivel==='1') inter++;
+    else dos2++;
   });
 
   const total = Object.keys(jugadores).length;
@@ -475,8 +488,8 @@ function procesarFilas(rows){
   document.getElementById('genBtn').disabled = false;
   mostrarPreview(
     `<span class="ok">✔ ${total} agentes leídos.</span><br>` +
-    `Recluta Open: ${av+inter} (Avanzados ${av} · Intermedios ${inter}) — Sargento Senior: ${sen}` +
-    (sinNivel? `<br><span class="warn">⚠ ${sinNivel} Recluta sin nivel indicado → quedaron como Intermedios.</span>`:'')
+    `Nivel 1★ (nunca mezclan): ${av} · Nivel 1: ${inter} · Nivel 2: ${dos2} · Senior: ${sen}` +
+    (sinNivel? `<br><span class="warn">⚠ ${sinNivel} sin nivel indicado → quedaron como Nivel 2.</span>`:'')
   );
 }
 function mostrarPreview(html){
@@ -528,29 +541,32 @@ function mejorEmparejamiento(juegan, st){
   }
   return mejor||[];
 }
-function rondaCruzada(avanzados, intermedios, st){
-  /* parejas mixtas avanzado+intermedio */
-  const A=[...avanzados].sort(()=>Math.random()-0.5);
-  const I=[...intermedios].sort(()=>Math.random()-0.5);
+function rondaCruzada(unos, dos, st, maxCanchas, offset){
+  /* parejas mixtas nivel1 + nivel2 */
+  const A=[...unos].sort(()=>Math.random()-0.5);
+  const I=[...dos].sort(()=>Math.random()-0.5);
   const parejas=[];
   const n=Math.min(A.length,I.length);
   for(let i=0;i<n;i++) parejas.push([A[i],I[i]]);
   const resto=[...A.slice(n),...I.slice(n)];
   for(let i=0;i+1<resto.length;i+=2) parejas.push([resto[i],resto[i+1]]);
   parejas.sort(()=>Math.random()-0.5);
-  const maxPartidos=Math.min(4, Math.floor(parejas.length/2));
+  const maxPartidos=Math.min(maxCanchas, Math.floor(parejas.length/2));
   const partidos=[]; const usados=new Set();
   for(let c=0;c<maxPartidos;c++){
     const p1=parejas[c*2], p2=parejas[c*2+1];
-    partidos.push({ a1:p1[0],a2:p1[1],b1:p2[0],b2:p2[1], cancha:c+1 });
+    partidos.push({ a1:p1[0],a2:p1[1],b1:p2[0],b2:p2[1], cancha:offset+c+1, cruzada:true });
     [p1,p2].flat().forEach(x=>usados.add(x));
   }
-  const todos=[...avanzados,...intermedios];
+  const todos=[...unos,...dos];
   const descansan=todos.filter(p=>!usados.has(p));
   partidos.forEach(m=>{
     [m.a1,m.a2,m.b1,m.b2].forEach(p=>st.games[p]=(st.games[p]||0)+1);
     st.partner[parKey(m.a1,m.a2)]=(st.partner[parKey(m.a1,m.a2)]||0)+1;
     st.partner[parKey(m.b1,m.b2)]=(st.partner[parKey(m.b1,m.b2)]||0)+1;
+    [m.a1,m.a2].forEach(x=>[m.b1,m.b2].forEach(y=>{
+      const k=parKey(x,y); st.opp[k]=(st.opp[k]||0)+1;
+    }));
   });
   return { partidos, descansan };
 }
@@ -558,81 +574,107 @@ function rondaCruzada(avanzados, intermedios, st){
 document.getElementById('genBtn').addEventListener('click', ()=>{
   if(!db){ alert('Sin conexión a Firebase.'); return; }
   if(!jugadoresCargados){ alert('Primero carga el archivo.'); return; }
-  const tieneResultados = data && data.rondas && Object.values(data.rondas).some(r=>r.partidos && Object.values(r.partidos).some(m=>m.estado==='jugado'));
+  const jornada = document.getElementById('cfgJornada').value;
+
+  const tieneResultados = data && data.rondas && Object.values(data.rondas).some(r=>r.categoria===jornada && r.partidos && Object.values(r.partidos).some(m=>m.estado==='jugado'));
   const msg = tieneResultados
-    ? '⚠ YA HAY RESULTADOS CARGADOS. Generar de nuevo BORRA el fixture y TODOS los marcadores. ¿Continuar?'
-    : 'Se generará el fixture completo (reemplaza cualquier fixture anterior). ¿Continuar?';
+    ? `⚠ LA JORNADA "${jornada}" YA TIENE RESULTADOS. Generar de nuevo borra su fixture y marcadores (la otra jornada NO se toca). ¿Continuar?`
+    : `Se generará el fixture de la jornada "${jornada}" (si ya existía, se reemplaza; la otra jornada no se toca). ¿Continuar?`;
   if(!confirm(msg)) return;
 
-  const rondasR = parseInt(document.getElementById('cfgRondasR').value)||8;
-  const rondasS = parseInt(document.getElementById('cfgRondasS').value)||7;
+  const numRondas = parseInt(document.getElementById('cfgRondas').value)||10;
   const nCruz = parseInt(document.getElementById('cfgCruzadas').value)||0;
+  const prefix = jornada==='Recluta Open' ? 'rec' : 'sen';
+  const horaBase = HORAS[jornada];
 
-  const lista = Object.values(jugadoresCargados);
-  const avanzados = lista.filter(j=>j.categoria==='Recluta Open'&&j.nivel==='Avanzado').map(j=>j.nombre);
-  const intermedios = lista.filter(j=>j.categoria==='Recluta Open'&&j.nivel==='Intermedio').map(j=>j.nombre);
-  const seniors = lista.filter(j=>j.categoria==='Sargento Senior').map(j=>j.nombre);
+  /* jugadores del archivo quedan asignados a la jornada elegida */
+  const lista = Object.entries(jugadoresCargados).map(([k,j])=>({
+    key:k, nombre:j.nombre, categoria:jornada,
+    nivel: jornada==='Recluta Open' ? (j.nivel||'2') : ''
+  }));
 
-  const st = { partner:{}, opp:{}, games:{}, rests:{} };
   const rondasOut = {};
-  let idx=0;
+  const st = { partner:{}, opp:{}, games:{}, rests:{} };
 
-  /* Recluta: posiciones de rondas cruzadas repartidas al medio */
-  const posCruzadas = new Set();
-  for(let c=0;c<Math.min(nCruz,rondasR);c++){
-    posCruzadas.add(Math.floor((c+1)*rondasR/(nCruz+1)));
-  }
-  /* Canchas proporcionales al tamaño de cada nivel (total 4) */
-  const totalRec = avanzados.length + intermedios.length;
-  let canchasInt = 0, canchasAv = 0;
-  if(totalRec > 0){
-    canchasInt = intermedios.length >= 4 ? Math.max(1, Math.round(4 * intermedios.length / totalRec)) : 0;
-    canchasInt = Math.min(canchasInt, Math.floor(intermedios.length/4), 3);
-    canchasAv = Math.min(Math.floor(avanzados.length/4), 4 - canchasInt);
-  }
+  if(jornada==='Recluta Open'){
+    const elite = lista.filter(j=>j.nivel==='1*').map(j=>j.nombre);
+    const unos = lista.filter(j=>j.nivel==='1').map(j=>j.nombre);
+    const dos = lista.filter(j=>j.nivel==='2').map(j=>j.nombre);
+    const nivel1 = [...elite, ...unos];
 
-  for(let r=0;r<rondasR;r++){
-    let ronda;
-    if(posCruzadas.has(r) && avanzados.length && intermedios.length){
-      ronda = rondaCruzada(avanzados, intermedios, st);
-      ronda.cruzada = true;
-    } else {
-      const rAv = canchasAv ? generarRondasPool(avanzados, canchasAv, 0, 1, st)[0] : {partidos:[],descansan:[...avanzados]};
-      const rInt = canchasInt ? generarRondasPool(intermedios, canchasInt, canchasAv, 1, st)[0] : {partidos:[],descansan:[...intermedios]};
-      ronda = { partidos:[...rAv.partidos, ...rInt.partidos], descansan:[...rAv.descansan, ...rInt.descansan], cruzada:false };
+    /* Rondas normales: nivel 1 (incl. 1*) vs canchas de nivel 2, proporcional */
+    const totalRec = nivel1.length + dos.length;
+    let canchas2 = 0, canchasN1 = 0;
+    if(totalRec > 0){
+      canchas2 = dos.length >= 4 ? Math.max(1, Math.round(4 * dos.length / totalRec)) : 0;
+      canchas2 = Math.min(canchas2, Math.floor(dos.length/4), 3);
+      canchasN1 = Math.min(Math.floor(nivel1.length/4), 4 - canchas2);
     }
-    const partObj={};
-    ronda.partidos.forEach((m,i)=>{ partObj['p'+i]={...m, sa:'', sb:'', estado:'pendiente'}; });
-    rondasOut['r'+String(idx).padStart(2,'0')] = {
-      orden:r, categoria:'Recluta Open', cruzada:!!ronda.cruzada,
-      hora: horaStr(HORAS['Recluta Open'] + r*MIN_POR_RONDA),
-      partidos: partObj, descansan: ronda.descansan
-    };
-    idx++;
+
+    /* Rondas mezcladas: elite en sus canchas, el resto (1 sin * + 2) en parejas mixtas */
+    const mixPool = unos.length + dos.length;
+    let canchasElite = 0, canchasMix = 0;
+    if(elite.length >= 4){
+      canchasElite = Math.max(1, Math.round(4 * elite.length / (elite.length + mixPool)));
+      canchasElite = Math.min(canchasElite, Math.floor(elite.length/4), 3);
+    }
+    canchasMix = Math.min(4 - canchasElite, Math.floor(mixPool/4) || (mixPool>=4?1:0));
+
+    const posCruzadas = new Set();
+    for(let c=0;c<Math.min(nCruz,numRondas);c++){
+      posCruzadas.add(Math.floor((c+1)*numRondas/(nCruz+1)));
+    }
+
+    for(let r=0;r<numRondas;r++){
+      let ronda;
+      if(posCruzadas.has(r) && unos.length && dos.length){
+        const rElite = canchasElite ? generarRondasPool(elite, canchasElite, 0, 1, st)[0] : {partidos:[],descansan:[...elite]};
+        const rMix = rondaCruzada(unos, dos, st, canchasMix, canchasElite);
+        ronda = { partidos:[...rElite.partidos, ...rMix.partidos], descansan:[...rElite.descansan, ...rMix.descansan], cruzada:true };
+      } else {
+        const rN1 = canchasN1 ? generarRondasPool(nivel1, canchasN1, 0, 1, st)[0] : {partidos:[],descansan:[...nivel1]};
+        const rDos = canchas2 ? generarRondasPool(dos, canchas2, canchasN1, 1, st)[0] : {partidos:[],descansan:[...dos]};
+        ronda = { partidos:[...rN1.partidos, ...rDos.partidos], descansan:[...rN1.descansan, ...rDos.descansan], cruzada:false };
+      }
+      const partObj={};
+      ronda.partidos.forEach((m,i)=>{ partObj['p'+i]={...m, sa:'', sb:'', estado:'pendiente'}; });
+      rondasOut[prefix+String(r).padStart(2,'0')] = {
+        orden:r, categoria:jornada, cruzada:!!ronda.cruzada,
+        hora: horaStr(horaBase + r*MIN_POR_RONDA),
+        partidos: partObj, descansan: ronda.descansan
+      };
+    }
+  } else {
+    const pool = lista.map(j=>j.nombre);
+    const canchas = Math.min(4, Math.floor(pool.length/4)) || 0;
+    if(!canchas){ alert('Se necesitan al menos 4 jugadores.'); return; }
+    for(let r=0;r<numRondas;r++){
+      const rr = generarRondasPool(pool, canchas, 0, 1, st)[0];
+      const partObj={};
+      rr.partidos.forEach((m,i)=>{ partObj['p'+i]={...m, sa:'', sb:'', estado:'pendiente'}; });
+      rondasOut[prefix+String(r).padStart(2,'0')] = {
+        orden:r, categoria:jornada, cruzada:false,
+        hora: horaStr(horaBase + r*MIN_POR_RONDA),
+        partidos: partObj, descansan: rr.descansan
+      };
+    }
   }
 
-  /* Senior */
-  const stS = { partner:{}, opp:{}, games:{}, rests:{} };
-  const canchasSen = Math.min(4, Math.floor(seniors.length/4)) || 0;
-  for(let r=0;r<rondasS && canchasSen;r++){
-    const rr = generarRondasPool(seniors, canchasSen, 0, 1, stS)[0];
-    const partObj={};
-    rr.partidos.forEach((m,i)=>{ partObj['p'+i]={...m, sa:'', sb:'', estado:'pendiente'}; });
-    rondasOut['r'+String(idx).padStart(2,'0')] = {
-      orden:r, categoria:'Sargento Senior', cruzada:false,
-      hora: horaStr(HORAS['Sargento Senior'] + r*MIN_POR_RONDA),
-      partidos: partObj, descansan: rr.descansan
-    };
-    idx++;
+  /* Fusionar con lo existente: conservar jugadores y rondas de la OTRA jornada */
+  const merged = { jugadores:{}, rondas:{} };
+  if(data && data.jugadores){
+    Object.entries(data.jugadores).forEach(([k,j])=>{ if(j.categoria!==jornada) merged.jugadores[k]=j; });
   }
-
-  const jugObj={};
-  Object.entries(jugadoresCargados).forEach(([k,j])=>{ jugObj[k]=j; });
+  if(data && data.rondas){
+    Object.entries(data.rondas).forEach(([k,r])=>{ if(r.categoria!==jornada) merged.rondas[k]=r; });
+  }
+  lista.forEach(j=>{ merged.jugadores[j.key]={nombre:j.nombre, categoria:j.categoria, nivel:j.nivel}; });
+  Object.assign(merged.rondas, rondasOut);
 
   document.getElementById('genBtn').disabled = true;
-  db.ref(ROOT + '/americano').set({ jugadores: jugObj, rondas: rondasOut })
+  db.ref(ROOT + '/americano').set(merged)
     .then(()=>{
-      document.getElementById('genNote').innerHTML = '<span style="color:var(--win);font-weight:700;">✔ Fixture generado y publicado. Ya está visible para todos.</span>';
+      document.getElementById('genNote').innerHTML = `<span style="color:var(--win);font-weight:700;">✔ Jornada "${esc(jornada)}" generada y publicada.</span>`;
       document.getElementById('genBtn').disabled = false;
     })
     .catch(e=>{
