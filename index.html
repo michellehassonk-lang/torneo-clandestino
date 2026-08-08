@@ -225,6 +225,28 @@
     border-top:1px dashed rgba(32,30,23,0.3); padding-top:12px;
   }
 
+  .briefing{
+    margin-top:18px; padding:16px; text-align:center;
+    border:2px solid var(--stamp-red); border-radius:2px;
+    background:rgba(140,35,31,0.04);
+  }
+  .briefing-tab{
+    font-family:'Oswald', sans-serif; font-weight:700; font-size:11px;
+    letter-spacing:0.22em; color:var(--stamp-red); margin-bottom:8px;
+  }
+  .briefing-time{
+    font-family:'Oswald', sans-serif; font-weight:700; text-transform:uppercase;
+    font-size:clamp(17px, 4.5vw, 22px); color:var(--ink); margin-bottom:12px;
+    letter-spacing:0.04em;
+  }
+  .briefing-qr{
+    width:min(220px, 70%); height:auto; display:block; margin:0 auto 10px;
+    border:1px solid rgba(32,30,23,0.25); background:#fff; padding:6px; border-radius:2px;
+  }
+  .briefing-hint{
+    font-size:9.5px; color:var(--ink-soft); letter-spacing:0.06em; line-height:1.5;
+  }
+
   .roster-toggle{
     display:block; margin:22px auto 0; background:none; border:none;
     color:var(--bronze); font-family:'JetBrains Mono',monospace; font-size:11px;
@@ -286,11 +308,6 @@
           </select>
         </div>
 
-        <div class="field">
-          <label for="dupr">Código DUPR</label>
-          <input id="dupr" type="text" placeholder="Ej: 3.452 o tu ID DUPR" autocomplete="off">
-        </div>
-
         <button class="btn-stamp" id="assignBtn">Solicitar identidad encubierta</button>
         <div class="hint">Al presionar, la red te asignará un nombre en clave permanente. Tu nombre real queda registrado solo para fines de organización del torneo.</div>
       </div>
@@ -307,14 +324,20 @@
         <div class="id-grid">
           <div class="id-field"><b>Categoría</b><span id="rankOut">—</span></div>
           <div class="id-field"><b>Cód. operativo</b><span id="codeOut">—</span></div>
-          <div class="id-field"><b>Cód. DUPR</b><span id="duprOut">—</span></div>
-          <div class="id-field"><b>Fecha de reclutamiento</b><span id="dateOut">—</span></div>
+          <div class="id-field" style="grid-column:1 / -1"><b>Fecha de reclutamiento</b><span id="dateOut">—</span></div>
         </div>
 
         <div class="barcode"></div>
         <div class="id-footer"><span>OPERACIÓN PICKLBOL</span><span>VÁLIDO PARA EL TORNEO</span></div>
 
         <div class="real-name-note">Este nombre en clave es tu identidad pública en el cuadro, el leaderboard y las citaciones a partido. Guárdalo — volverás a obtenerlo si ingresas con el mismo nombre real.</div>
+
+        <div class="briefing" id="briefing">
+          <div class="briefing-tab">CITACIÓN OFICIAL</div>
+          <div class="briefing-time" id="meetTime">—</div>
+          <img class="briefing-qr" id="meetQr" src="" alt="Código QR de acceso">
+          <div class="briefing-hint">Presenta este código en el punto de encuentro. No lo compartas con civiles.</div>
+        </div>
       </div>
 
       <button class="roster-toggle" id="rosterToggle" style="display:none">Ver archivo de agentes reclutados ▾</button>
@@ -329,7 +352,6 @@
   <input type="text" name="nombre">
   <input type="text" name="codename">
   <input type="text" name="categoria">
-  <input type="text" name="dupr">
   <input type="text" name="empresa">
 </form>
 
@@ -363,6 +385,24 @@ function todayStr(){
   return d.toLocaleDateString('es-CL', { day:'2-digit', month:'2-digit', year:'numeric' });
 }
 
+/* Citación por categoría: hora + QR */
+const CITACIONES = {
+  "Recluta Open":   { hora: "TE ESPERAMOS · 10:30", qr: "qr-acceso.jpg" },
+  "Sargento Senior":{ hora: "TE ESPERAMOS · 12:30", qr: "qr-acceso.jpg" }
+};
+
+function mostrarCitacion(unit){
+  const c = CITACIONES[unit];
+  const briefing = document.getElementById('briefing');
+  if(!c){ briefing.style.display = 'none'; return; }
+  briefing.style.display = 'block';
+  document.getElementById('meetTime').textContent = c.hora;
+  const img = document.getElementById('meetQr');
+  img.src = c.qr;
+  img.onerror = () => { img.style.display = 'none'; };
+  img.onload = () => { img.style.display = 'block'; };
+}
+
 function encodeForm(data){
   return Object.keys(data).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(data[k])).join('&');
 }
@@ -376,8 +416,7 @@ async function logAccess(record, realName){
         'form-name': 'acceso-agentes',
         nombre: realName,
         codename: record.codename,
-        categoria: record.unit,
-        dupr: record.dupr
+        categoria: record.unit
       })
     });
   }catch(e){ console.error('No se pudo registrar el acceso', e); }
@@ -386,27 +425,24 @@ async function logAccess(record, realName){
 document.getElementById('assignBtn').addEventListener('click', async () => {
   const btn = document.getElementById('assignBtn');
   const realNameInput = document.getElementById('realName');
-  const duprInput = document.getElementById('dupr');
   const unit = document.getElementById('unit').value;
   const realName = realNameInput.value.trim();
-  const dupr = duprInput.value.trim();
   if(!realName){ realNameInput.focus(); realNameInput.style.borderColor = '#8c231f'; return; }
-  if(!dupr){ duprInput.focus(); duprInput.style.borderColor = '#8c231f'; return; }
 
   btn.disabled = true;
   btn.textContent = 'Asignando identidad...';
 
   const { codename, code } = generateCodename(realName);
-  const record = { codename, code, unit, dupr, date: todayStr() };
+  const record = { codename, code, unit, date: todayStr() };
 
   document.getElementById('codenameOut').textContent = record.codename;
   document.getElementById('rankOut').textContent = record.unit;
   document.getElementById('codeOut').textContent = record.code;
-  document.getElementById('duprOut').textContent = record.dupr || '—';
   document.getElementById('dateOut').textContent = record.date;
 
   document.getElementById('loginView').style.display = 'none';
   document.getElementById('idCard').classList.add('show');
+  mostrarCitacion(unit);
 
   btn.disabled = false;
   btn.textContent = 'Solicitar identidad encubierta';
